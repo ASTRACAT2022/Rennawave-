@@ -1,0 +1,352 @@
+import { CONTROLLERS_INFO, NODES_CONTROLLER } from '@contract/api';
+import { ROLE } from '@contract/constants';
+
+import { Body, Controller, HttpStatus, Param, UseFilters, UseGuards } from '@nestjs/common';
+import {
+    ApiBearerAuth,
+    ApiCreatedResponse,
+    ApiOkResponse,
+    ApiParam,
+    ApiTags,
+} from '@nestjs/swagger';
+
+import { Endpoint } from '@common/decorators/base-endpoint';
+import { Roles } from '@common/decorators/roles/roles';
+import { ApiScopeResource } from '@common/decorators/scopes';
+import { HttpExceptionFilter } from '@common/exception/http-exception.filter';
+import { JwtDefaultGuard } from '@common/guards/jwt-guards/def-jwt-guard';
+import { RolesGuard } from '@common/guards/roles/roles.guard';
+import { ScopesGuard } from '@common/guards/scopes';
+import { errorHandler } from '@common/helpers/error-handler.helper';
+import {
+    CreateNodeCommand,
+    DeleteNodeCommand,
+    DisableNodeCommand,
+    EnableNodeCommand,
+    GetAllNodesCommand,
+    GetAllNodesTagsCommand,
+    GetOneNodeCommand,
+    BulkNodesProfileModificationCommand,
+    ReorderNodeCommand,
+    ResetNodeTrafficCommand,
+    RestartAllNodesCommand,
+    RestartNodeCommand,
+    UpdateNodeCommand,
+    BulkNodesActionsCommand,
+    BulkNodesUpdateCommand,
+} from '@libs/contracts/commands';
+
+import {
+    BulkNodesActionsRequestDto,
+    BulkNodesActionsResponseDto,
+    BulkNodesUpdateRequestDto,
+    BulkNodesUpdateResponseDto,
+    CreateNodeRequestDto,
+    CreateNodeResponseDto,
+    DeleteNodeRequestParamDto,
+    DeleteNodeResponseDto,
+    DisableNodeRequestParamDto,
+    DisableNodeResponseDto,
+    EnableNodeResponseDto,
+    GetAllNodesResponseDto,
+    GetAllNodesTagsResponseDto,
+    GetOneNodeRequestParamDto,
+    GetOneNodeResponseDto,
+    ProfileModificationRequestDto,
+    ProfileModificationResponseDto,
+    ReorderNodeRequestDto,
+    ReorderNodeResponseDto,
+    ResetNodeTrafficRequestDto,
+    ResetNodeTrafficResponseDto,
+    RestartAllNodesRequestBodyDto,
+    RestartAllNodesResponseDto,
+    RestartNodeRequestDto,
+    RestartNodeRequestBodyDto,
+    RestartNodeResponseDto,
+    UpdateNodeRequestDto,
+    UpdateNodeResponseDto,
+} from './dtos';
+import { EnableNodeRequestParamDto } from './dtos';
+import { GetAllNodesTagsResponseModel } from './models';
+import { NodesService } from './nodes.service';
+
+@ApiBearerAuth('Authorization')
+@ApiScopeResource(CONTROLLERS_INFO.NODES.resource)
+@ApiTags(CONTROLLERS_INFO.NODES.tag)
+@Roles(ROLE.ADMIN, ROLE.API)
+@UseGuards(JwtDefaultGuard, RolesGuard, ScopesGuard)
+@UseFilters(HttpExceptionFilter)
+@Controller(NODES_CONTROLLER)
+export class NodesController {
+    constructor(private readonly nodesService: NodesService) {}
+
+    @ApiOkResponse({
+        type: GetAllNodesTagsResponseDto,
+        description: 'Nodes tags fetched',
+    })
+    @Endpoint({
+        command: GetAllNodesTagsCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getAllNodesTags(): Promise<GetAllNodesTagsResponseDto> {
+        const res = await this.nodesService.getAllNodesTags();
+        const data = errorHandler(res);
+        return {
+            response: new GetAllNodesTagsResponseModel(data),
+        };
+    }
+
+    @ApiCreatedResponse({
+        type: CreateNodeResponseDto,
+        description: 'Node created successfully',
+    })
+    @Endpoint({
+        command: CreateNodeCommand,
+        httpCode: HttpStatus.CREATED,
+        apiBody: CreateNodeRequestDto,
+    })
+    async createNode(@Body() body: CreateNodeRequestDto): Promise<CreateNodeResponseDto> {
+        const result = await this.nodesService.createNode(body);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: GetAllNodesResponseDto,
+        description: 'Nodes fetched',
+    })
+    @Endpoint({
+        command: GetAllNodesCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getAllNodes(): Promise<GetAllNodesResponseDto> {
+        const res = await this.nodesService.getAllNodes();
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: GetOneNodeResponseDto,
+        description: 'Node fetched',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: GetOneNodeCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getOneNode(@Param() uuid: GetOneNodeRequestParamDto): Promise<GetOneNodeResponseDto> {
+        const res = await this.nodesService.getOneNode(uuid.uuid);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: EnableNodeResponseDto,
+        description: 'Node enabled',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: EnableNodeCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async enableNode(@Param() uuid: EnableNodeRequestParamDto): Promise<EnableNodeResponseDto> {
+        const res = await this.nodesService.enableNode(uuid.uuid);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: DisableNodeResponseDto,
+        description: 'Node disabled',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: DisableNodeCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async disableNode(@Param() uuid: DisableNodeRequestParamDto): Promise<DisableNodeResponseDto> {
+        const res = await this.nodesService.disableNode(uuid.uuid);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: DeleteNodeResponseDto,
+        description: 'Node deleted',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: DeleteNodeCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async deleteNode(@Param() uuid: DeleteNodeRequestParamDto): Promise<DeleteNodeResponseDto> {
+        const res = await this.nodesService.deleteNode(uuid.uuid);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: UpdateNodeResponseDto,
+        description: 'Node updated',
+    })
+    @Endpoint({
+        command: UpdateNodeCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: UpdateNodeRequestDto,
+    })
+    async updateNode(@Body() body: UpdateNodeRequestDto): Promise<UpdateNodeResponseDto> {
+        const res = await this.nodesService.updateNode(body);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: RestartNodeResponseDto,
+        description: 'Node restarted',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: RestartNodeCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async restartNode(
+        @Param() uuid: RestartNodeRequestDto,
+        @Body() body: RestartNodeRequestBodyDto,
+    ): Promise<RestartNodeResponseDto> {
+        const res = await this.nodesService.restartNode(uuid.uuid, body.forceRestart);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: ResetNodeTrafficResponseDto,
+        description: 'Event sent',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'Node UUID' })
+    @Endpoint({
+        command: ResetNodeTrafficCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async resetNodeTraffic(
+        @Param() uuid: ResetNodeTrafficRequestDto,
+    ): Promise<ResetNodeTrafficResponseDto> {
+        const res = await this.nodesService.resetNodeTraffic(uuid.uuid);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: RestartAllNodesResponseDto,
+        description: 'All nodes restarted',
+    })
+    @Endpoint({
+        command: RestartAllNodesCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async restartAllNodes(
+        @Body() { forceRestart }: RestartAllNodesRequestBodyDto,
+    ): Promise<RestartAllNodesResponseDto> {
+        const res = await this.nodesService.restartAllNodes(forceRestart);
+        const data = errorHandler(res);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: ReorderNodeResponseDto,
+        description: 'Nodes reordered successfully',
+    })
+    @Endpoint({
+        command: ReorderNodeCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: ReorderNodeRequestDto,
+    })
+    async reorderNodes(@Body() body: ReorderNodeRequestDto): Promise<ReorderNodeResponseDto> {
+        const result = await this.nodesService.reorderNodes(body);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: ProfileModificationResponseDto,
+        description: 'Event sent successfully',
+    })
+    @Endpoint({
+        command: BulkNodesProfileModificationCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: ProfileModificationRequestDto,
+    })
+    async profileModification(
+        @Body() body: ProfileModificationRequestDto,
+    ): Promise<ProfileModificationResponseDto> {
+        const result = await this.nodesService.profileModification(body);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: BulkNodesActionsResponseDto,
+        description: 'Event sent successfully',
+    })
+    @Endpoint({
+        command: BulkNodesActionsCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: BulkNodesActionsRequestDto,
+    })
+    async bulkNodesActions(
+        @Body() body: BulkNodesActionsRequestDto,
+    ): Promise<BulkNodesActionsResponseDto> {
+        const result = await this.nodesService.bulkNodesActions(body);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @ApiOkResponse({
+        type: BulkNodesUpdateResponseDto,
+        description: 'Event sent successfully',
+    })
+    @Endpoint({
+        command: BulkNodesUpdateCommand,
+        httpCode: HttpStatus.OK,
+        apiBody: BulkNodesUpdateRequestDto,
+    })
+    async bulkNodesUpdate(
+        @Body() body: BulkNodesUpdateRequestDto,
+    ): Promise<BulkNodesUpdateResponseDto> {
+        const result = await this.nodesService.bulkNodesUpdate(body);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+}

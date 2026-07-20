@@ -1,0 +1,8 @@
+export const API_TOKENS_CONTROLLER = 'tokens' as const;
+
+export const API_TOKENS_ROUTES = {
+    CREATE: '',
+    DELETE: (uuid: string) => `${uuid}`,
+    GET: '',
+    GET_SCOPES: 'scopes',
+} as const;

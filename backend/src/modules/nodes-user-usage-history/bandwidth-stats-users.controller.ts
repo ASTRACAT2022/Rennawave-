@@ -1,0 +1,133 @@
+import { Controller, HttpStatus, Param, Query, UseFilters, UseGuards } from '@nestjs/common';
+import {
+    ApiBearerAuth,
+    ApiNotFoundResponse,
+    ApiOkResponse,
+    ApiParam,
+    ApiQuery,
+    ApiTags,
+} from '@nestjs/swagger';
+
+import { Endpoint } from '@common/decorators/base-endpoint';
+import { Roles } from '@common/decorators/roles/roles';
+import { ApiScopeResource } from '@common/decorators/scopes';
+import { HttpExceptionFilter } from '@common/exception/http-exception.filter';
+import { JwtDefaultGuard } from '@common/guards/jwt-guards/def-jwt-guard';
+import { RolesGuard } from '@common/guards/roles';
+import { ScopesGuard } from '@common/guards/scopes';
+import { errorHandler } from '@common/helpers/error-handler.helper';
+import { BANDWIDTH_STATS_USERS_CONTROLLER, CONTROLLERS_INFO } from '@libs/contracts/api';
+import { GetLegacyStatsUserUsageCommand, GetStatsUserUsageCommand } from '@libs/contracts/commands';
+import { ROLE } from '@libs/contracts/constants';
+
+import {
+    GetStatsUserUsageRequestDto,
+    GetStatsUserUsageRequestQueryDto,
+    GetStatsUserUsageResponseDto,
+} from './dtos';
+import {
+    GetLegacyStatsUserUsageRequestDto,
+    GetLegacyStatsUserUsageRequestQueryDto,
+    GetLegacyStatsUserUsageResponseDto,
+} from './dtos/get-legacy-stats-users-usage.dto';
+import { GetLegacyStatsUserUsageResponseModel } from './models';
+import { NodesUserUsageHistoryService } from './nodes-user-usage-history.service';
+
+@ApiBearerAuth('Authorization')
+@ApiScopeResource(CONTROLLERS_INFO.BANDWIDTH_STATS.resource)
+@ApiTags(CONTROLLERS_INFO.BANDWIDTH_STATS.tag)
+@Roles(ROLE.ADMIN, ROLE.API)
+@UseGuards(JwtDefaultGuard, RolesGuard, ScopesGuard)
+@UseFilters(HttpExceptionFilter)
+@Controller(BANDWIDTH_STATS_USERS_CONTROLLER)
+export class BandwidthStatsUsersController {
+    constructor(private readonly nodesUserUsageHistoryService: NodesUserUsageHistoryService) {}
+
+    @ApiNotFoundResponse({
+        description: 'User not found',
+    })
+    @ApiOkResponse({
+        type: GetLegacyStatsUserUsageResponseDto,
+        description: 'User usage by range (legacy) fetched successfully',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'UUID of the user', required: true })
+    @ApiQuery({
+        name: 'end',
+        type: Date,
+        description: 'End date',
+        required: true,
+    })
+    @ApiQuery({
+        name: 'start',
+        type: Date,
+        description: 'Start date',
+        required: true,
+    })
+    @Endpoint({
+        command: GetLegacyStatsUserUsageCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getUserUsageByRange(
+        @Query() query: GetLegacyStatsUserUsageRequestQueryDto,
+        @Param() paramData: GetLegacyStatsUserUsageRequestDto,
+    ): Promise<GetLegacyStatsUserUsageResponseDto> {
+        const result = await this.nodesUserUsageHistoryService.getLegacyStatsUserUsage(
+            paramData.uuid,
+            new Date(query.start),
+            new Date(query.end),
+        );
+
+        const data = errorHandler(result);
+        return {
+            response: data.map((item) => new GetLegacyStatsUserUsageResponseModel(item)),
+        };
+    }
+
+    @ApiOkResponse({
+        type: GetStatsUserUsageResponseDto,
+        description: 'Stats user usage fetched successfully',
+    })
+    @ApiParam({ name: 'uuid', type: String, description: 'UUID of the user', required: true })
+    @ApiQuery({
+        name: 'end',
+        type: String,
+        description: 'End date (YYYY-MM-DD)',
+        required: true,
+        example: '2026-01-01',
+        format: 'date',
+    })
+    @ApiQuery({
+        name: 'start',
+        type: String,
+        description: 'Start date (YYYY-MM-DD)',
+        required: true,
+        example: '2026-01-31',
+        format: 'date',
+    })
+    @ApiQuery({
+        name: 'topNodesLimit',
+        type: Number,
+        description: 'Limit of top nodes to return',
+        required: true,
+    })
+    @Endpoint({
+        command: GetStatsUserUsageCommand,
+        httpCode: HttpStatus.OK,
+    })
+    async getStatsNodesUsage(
+        @Query() query: GetStatsUserUsageRequestQueryDto,
+        @Param() paramData: GetStatsUserUsageRequestDto,
+    ): Promise<GetStatsUserUsageResponseDto> {
+        const result = await this.nodesUserUsageHistoryService.getStatsUserUsage(
+            paramData.uuid,
+            query.start,
+            query.end,
+            query.topNodesLimit,
+        );
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+}

@@ -1,0 +1,212 @@
+import {
+    Affix,
+    Badge,
+    Button,
+    CloseButton,
+    Group,
+    Paper,
+    Stack,
+    Tooltip,
+    Transition
+} from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { modals } from '@mantine/modals'
+import { GetAllNodesCommand } from '@remnawave/backend-contract'
+import { ConfigProfilesDrawer } from '@widgets/dashboard/nodes/config-profiles-drawer'
+import { useTranslation } from 'react-i18next'
+import { TbCategoryPlus, TbChartArcs3, TbDots } from 'react-icons/tb'
+
+import { queryClient } from '@shared/api'
+import { QueryKeys, useBulkNodesProfileModification } from '@shared/api/hooks'
+import { XrayLogo } from '@shared/ui/logos'
+import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
+
+import { MODALS, useModalsStoreOpenWithData } from '@entities/dashboard/modal-store'
+
+import { BulkUpdateNodesModalContent } from './bulk-update-nodes.modal.content'
+import { MultiSelectNodesModalContent } from './multi-select-modal.content'
+
+interface IProps {
+    selectedRecords: GetAllNodesCommand.Response['response'][number][]
+    setSelectedRecords: (records: GetAllNodesCommand.Response['response'][number][]) => void
+}
+
+export const MultiSelectNodesFeature = (props: IProps) => {
+    const { selectedRecords, setSelectedRecords } = props
+    const { t } = useTranslation()
+
+    const [opened, handlers] = useDisclosure(false)
+
+    const openModalWithData = useModalsStoreOpenWithData()
+
+    const hasSelection = selectedRecords.length > 0
+
+    const { mutate: bulkNodesProfileModification } = useBulkNodesProfileModification({
+        mutationFns: {
+            onSuccess: () => {
+                setSelectedRecords([])
+
+                queryClient.refetchQueries({ queryKey: QueryKeys.nodes.getAllNodes.queryKey })
+            }
+        }
+    })
+
+    const handleProfileModification = (
+        configProfileUuid: string,
+        configProfileInboundUuids: string[]
+    ) => {
+        bulkNodesProfileModification({
+            variables: {
+                uuids: selectedRecords.map((record) => record.uuid),
+                configProfile: {
+                    activeConfigProfileUuid: configProfileUuid,
+                    activeInbounds: configProfileInboundUuids
+                }
+            }
+        })
+    }
+
+    return (
+        <Affix position={{ bottom: 80, right: 20 }} zIndex={100}>
+            <Transition mounted={hasSelection} transition="slide-up">
+                {(styles) => (
+                    <Paper
+                        p={4}
+                        shadow="md"
+                        style={{
+                            ...styles,
+                            width: '300px',
+                            maxWidth: '1200px',
+                            margin: '0 auto'
+                        }}
+                        withBorder
+                    >
+                        <Paper
+                            p="md"
+                            style={{
+                                borderRadius: 'calc(var(--mantine-radius-default) - 4px)',
+                                border: '1px solid var(--mantine-color-dark-5)'
+                            }}
+                        >
+                            <Stack gap="sm">
+                                <Group justify="space-between">
+                                    <Badge color="shaded-gray" size="lg" variant="soft">
+                                        {t('internal-squads.drawer.widget.selected')}:{' '}
+                                        {selectedRecords.length}
+                                    </Badge>
+                                    <Tooltip
+                                        label={t('multi-select-hosts.feature.clear-selection')}
+                                        withArrow
+                                    >
+                                        <CloseButton onClick={() => setSelectedRecords([])} />
+                                    </Tooltip>
+                                </Group>
+
+                                <Button
+                                    color="cyan"
+                                    fullWidth
+                                    leftSection={<TbChartArcs3 size={18} />}
+                                    onClick={() => {
+                                        openModalWithData(
+                                            MODALS.NODES_USERS_USAGE_STATISTICS_MODAL,
+                                            {
+                                                nodeUuids: selectedRecords.map(
+                                                    (record) => record.uuid
+                                                )
+                                            }
+                                        )
+                                    }}
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    {t('node-users-usage-drawer.widget.user-traffic-statistics')}
+                                </Button>
+
+                                <Button
+                                    color="cyan"
+                                    fullWidth
+                                    leftSection={<TbCategoryPlus size={18} />}
+                                    onClick={() =>
+                                        modals.open({
+                                            title: (
+                                                <BaseOverlayHeader
+                                                    iconColor="cyan"
+                                                    IconComponent={TbCategoryPlus}
+                                                    iconVariant="soft"
+                                                    title={t('common.update')}
+                                                    titleOrder={5}
+                                                />
+                                            ),
+                                            centered: true,
+                                            children: (
+                                                <BulkUpdateNodesModalContent
+                                                    selectedRecords={selectedRecords}
+                                                    setSelectedRecords={setSelectedRecords}
+                                                />
+                                            )
+                                        })
+                                    }
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    {t('common.update')}
+                                </Button>
+
+                                <Button
+                                    color="cyan"
+                                    fullWidth
+                                    leftSection={<XrayLogo size={18} />}
+                                    onClick={handlers.open}
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    {t('multi-select-nodes.feature.profile-and-inbounds')}
+                                </Button>
+
+                                <Button
+                                    color="cyan"
+                                    fullWidth
+                                    leftSection={<TbDots size={18} />}
+                                    onClick={() =>
+                                        modals.open({
+                                            title: (
+                                                <BaseOverlayHeader
+                                                    iconColor="cyan"
+                                                    IconComponent={TbDots}
+                                                    iconVariant="soft"
+                                                    title={t('base-node-form.more-actions')}
+                                                    titleOrder={5}
+                                                />
+                                            ),
+                                            centered: true,
+                                            children: (
+                                                <MultiSelectNodesModalContent
+                                                    selectedRecords={selectedRecords}
+                                                    setSelectedRecords={setSelectedRecords}
+                                                />
+                                            )
+                                        })
+                                    }
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    {t('base-node-form.more-actions')}
+                                </Button>
+                            </Stack>
+                        </Paper>
+                    </Paper>
+                )}
+            </Transition>
+
+            <ConfigProfilesDrawer
+                activeConfigProfileInbounds={[]}
+                activeConfigProfileUuid={undefined}
+                onClose={handlers.close}
+                onSaveInbounds={(inbounds, configProfileUuid) => {
+                    handleProfileModification(configProfileUuid, inbounds)
+                }}
+                opened={opened}
+            />
+        </Affix>
+    )
+}

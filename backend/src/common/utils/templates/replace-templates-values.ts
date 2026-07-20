@@ -1,0 +1,126 @@
+import dayjs from 'dayjs';
+import { transliterate } from 'transliteration';
+
+import { USER_STATUSES_TEMPLATE } from '@libs/contracts/constants';
+import { TemplateKeys } from '@libs/contracts/constants/templates/template-keys';
+
+import { SubscriptionSettingsEntity } from '@modules/subscription-settings/entities';
+import { UserEntity } from '@modules/users/entities';
+
+import { prettyBytesUtil } from '../bytes';
+
+type TemplateValueGetter = () => string | number;
+type LazyTemplateValues = {
+    [key in TemplateKeys]: TemplateValueGetter;
+};
+
+type TemplateTransform = (input: string) => string;
+
+export class TemplateEngine {
+    private static readonly TEMPLATE_REGEX = /\{\{(\w+)\}\}/g;
+    private static readonly BASE64_RESULT_PREFIX = 'base64:';
+
+    private static readonly TRANSFORMATIONS: ReadonlyArray<{
+        prefix: string;
+        transform: TemplateTransform;
+    }> = [
+        {
+            prefix: 'rwEncodeBase64:',
+            transform: (input) =>
+                TemplateEngine.BASE64_RESULT_PREFIX + Buffer.from(input, 'utf8').toString('base64'),
+        },
+    ];
+
+    static replace(template: string, values: LazyTemplateValues): string {
+        const { body, transform } = this.parseTransform(template);
+
+        let hasReplacement = false;
+
+        const result = body.replace(this.TEMPLATE_REGEX, (match, key: TemplateKeys) => {
+            const getter = values[key];
+            if (getter !== undefined) {
+                hasReplacement = true;
+                return getter()?.toString() ?? '';
+            }
+            return match;
+        });
+
+        if (transform) {
+            return transform(hasReplacement ? result : body);
+        }
+
+        return hasReplacement ? result : template;
+    }
+
+    private static parseTransform(template: string): {
+        body: string;
+        transform: TemplateTransform | null;
+    } {
+        for (const { prefix, transform } of this.TRANSFORMATIONS) {
+            if (template.startsWith(prefix)) {
+                return { body: template.slice(prefix.length), transform };
+            }
+        }
+        return { body: template, transform: null };
+    }
+
+    static createUserValueMap(
+        user: UserEntity,
+        subscriptionSettings: SubscriptionSettingsEntity,
+        subPublicDomain: string,
+        forHeader: boolean = false,
+    ): LazyTemplateValues {
+        const trafficLeft = (): bigint =>
+            user.trafficLimitBytes === 0n
+                ? 0n
+                : user.trafficLimitBytes - user.userTraffic.usedTrafficBytes;
+
+        return {
+            DAYS_LEFT: () => Math.max(0, dayjs(user.expireAt).diff(dayjs(), 'day')),
+            TRAFFIC_USED: () => prettyBytesUtil(user.userTraffic.usedTrafficBytes, true, 3),
+            TRAFFIC_LEFT: () => prettyBytesUtil(trafficLeft(), true, 3),
+            TOTAL_TRAFFIC: () => prettyBytesUtil(user.trafficLimitBytes, true, 3),
+            STATUS: () =>
+                forHeader
+                    ? transliterate(USER_STATUSES_TEMPLATE[user.status])
+                    : USER_STATUSES_TEMPLATE[user.status],
+            USERNAME: () => user.username,
+            EMAIL: () => user.email || '',
+            TELEGRAM_ID: () => user.telegramId?.toString() || '',
+            SUBSCRIPTION_URL: () => `https://${subPublicDomain}/${user.shortUuid}`,
+            TAG: () => user.tag || '',
+            EXPIRE_UNIX: () => dayjs(user.expireAt).unix(),
+            SHORT_UUID: () => user.shortUuid,
+            ID: () => user.tId.toString(),
+            TRAFFIC_USED_BYTES: () => user.userTraffic.usedTrafficBytes.toString(),
+            TRAFFIC_LEFT_BYTES: () => trafficLeft().toString(),
+            TOTAL_TRAFFIC_BYTES: () => user.trafficLimitBytes.toString(),
+            RESET_STRATEGY: () => user.trafficLimitStrategy,
+            LIFETIME_USED_BYTES: () => user.userTraffic.lifetimeUsedTrafficBytes.toString(),
+            CREATED_AT_UNIX: () => dayjs(user.createdAt).unix(),
+            LAST_TRAFFIC_RESET_AT_UNIX: () =>
+                user.lastTrafficResetAt ? dayjs(user.lastTrafficResetAt).unix() : 0,
+            SS_SUPPORT_LINK: () => subscriptionSettings.supportLink,
+            SS_PROFILE_UPDATE_INTERVAL: () => subscriptionSettings.profileUpdateInterval.toString(),
+            SS_HWID_LIMIT: () =>
+                (user.hwidDeviceLimit !== null
+                    ? user.hwidDeviceLimit
+                    : (subscriptionSettings.hwidSettings.fallbackDeviceLimit ?? 0)
+                ).toString(),
+            DESCRIPTION: () => user.description ?? '',
+        };
+    }
+
+    static formatWithUser(
+        template: string,
+        user: UserEntity,
+        subscriptionSettings: SubscriptionSettingsEntity,
+        subPublicDomain: string,
+        forHeader: boolean = false,
+    ): string {
+        return this.replace(
+            template,
+            this.createUserValueMap(user, subscriptionSettings, subPublicDomain, forHeader),
+        );
+    }
+}

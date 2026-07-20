@@ -1,0 +1,97 @@
+import { Job } from 'bullmq';
+
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
+
+import { UpsertHwidUserDeviceCommand } from '@modules/hwid-user-devices/commands/upsert-hwid-user-device';
+import { HwidUserDeviceEntity } from '@modules/hwid-user-devices/entities/hwid-user-device.entity';
+import { UserSubscriptionRequestHistoryEntity } from '@modules/user-subscription-request-history';
+import { CountAndDeleteSubscriptionRequestHistoryCommand } from '@modules/user-subscription-request-history/commands/count-and-delete-subscription-request-history';
+import { CreateSubscriptionRequestHistoryCommand } from '@modules/user-subscription-request-history/commands/create-subscription-request-history';
+
+import { QUEUES_NAMES } from '@queue/queue.enum';
+
+import { USERS_JOB_NAMES } from '../constants';
+import {
+    IAddUserSubscriptionRequestHistoryPayload,
+    ICheckAndUpsertHwidDevicePayload,
+} from '../interfaces';
+
+@Processor(QUEUES_NAMES.USERS.SUBSCRIPTION_REQUESTS, {
+    concurrency: 50,
+})
+export class SubscriptionRequestsQueueProcessor extends WorkerHost {
+    private readonly logger = new Logger(SubscriptionRequestsQueueProcessor.name);
+
+    constructor(private readonly commandBus: CommandBus) {
+        super();
+    }
+
+    async process(job: Job) {
+        switch (job.name) {
+            case USERS_JOB_NAMES.ADD_SUBSCRIPTION_REQUEST_RECORD:
+                return await this.handleAddRecordJob(job);
+            case USERS_JOB_NAMES.UPSERT_HWID_DEVICE:
+                return await this.handleCheckAndUpsertHwidDeviceJob(job);
+            default:
+                this.logger.warn(`Job "${job.name}" is not handled.`);
+                break;
+        }
+    }
+
+    private async handleAddRecordJob(job: Job<IAddUserSubscriptionRequestHistoryPayload>) {
+        try {
+            const { userId: userIdString, requestIp, userAgent, requestAt } = job.data;
+            const userId = BigInt(userIdString);
+
+            await this.commandBus.execute(
+                new CreateSubscriptionRequestHistoryCommand(
+                    new UserSubscriptionRequestHistoryEntity({
+                        userId,
+                        requestIp,
+                        userAgent,
+                        requestAt,
+                    }),
+                ),
+            );
+
+            await this.commandBus.execute(
+                new CountAndDeleteSubscriptionRequestHistoryCommand(userId),
+            );
+
+            return;
+        } catch (error) {
+            this.logger.error(error);
+
+            return;
+        }
+    }
+
+    private async handleCheckAndUpsertHwidDeviceJob(job: Job<ICheckAndUpsertHwidDevicePayload>) {
+        try {
+            const { hwid, userId, platform, osVersion, deviceModel, userAgent, requestIp } =
+                job.data;
+
+            await this.commandBus.execute(
+                new UpsertHwidUserDeviceCommand(
+                    new HwidUserDeviceEntity({
+                        hwid,
+                        userId: BigInt(userId),
+                        platform,
+                        osVersion,
+                        deviceModel,
+                        userAgent,
+                        requestIp,
+                    }),
+                ),
+            );
+
+            return;
+        } catch (error) {
+            this.logger.error(`Error checking and upserting hwid device: ${error}`);
+
+            return;
+        }
+    }
+}
