@@ -7,6 +7,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { AxiosService } from '@common/axios/axios.service';
+import { resolveNodeAddressPlaceholder } from '@common/helpers/xray-config';
 import { RawCacheService } from '@common/raw-cache';
 import { formatExecutionTime, getTime } from '@common/utils/get-elapsed-time';
 import { CACHE_KEYS, CACHE_KEYS_TTL, EVENTS } from '@libs/contracts/constants';
@@ -206,7 +207,10 @@ export class StartNodeProcessor extends WorkerHost {
 
             const startNodeResult = await this.axios.startXray(
                 {
-                    xrayConfig: config.response.config as unknown as Record<string, unknown>,
+                    xrayConfig: resolveNodeAddressPlaceholder(
+                        config.response.config as unknown as Record<string, unknown>,
+                        node.address,
+                    ),
                     internals: {
                         hashes: config.response.hashesPayload,
                         forceRestart: force ?? false,

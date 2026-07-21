@@ -69,5 +69,19 @@ This panel image validates AesingFlow configuration. A Node is separate and
 requires an AesingFlow-compatible Xray core via `CUSTOM_CORE_URL`; the standard
 Remnawave Node image does not provide that protocol.
 
+### Per-Node TLS name
+
+For one AesingFlow profile shared by multiple Nodes, set this exact value in
+the inbound:
+
+```json
+"serverName": "{{NODE_ADDRESS}}"
+```
+
+Immediately before sending the Xray config, the panel replaces it with the
+`Address` configured for that specific Node. Every Node address must therefore
+be a public DNS name covered by that Node's certificate. Do not use this token
+when the Node address is an IP address or a private management endpoint.
+
 For an existing vanilla panel, follow [MIGRATION_FROM_VANILLA.md](MIGRATION_FROM_VANILLA.md)
 instead of starting with an empty database.
