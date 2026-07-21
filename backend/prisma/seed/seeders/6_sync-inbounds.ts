@@ -4,6 +4,38 @@ import isEqual from 'lodash/isEqual';
 
 import { XRayConfig } from '@common/helpers/xray-config';
 
+type MutableJsonObject = Record<string, unknown>;
+
+function isObject(value: unknown): value is MutableJsonObject {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function removeLegacyAesingFlowNetwork(config: unknown): {
+    config: unknown;
+    changed: boolean;
+} {
+    if (!isObject(config) || !Array.isArray(config.inbounds)) {
+        return { config, changed: false };
+    }
+
+    let changed = false;
+    const nextConfig = structuredClone(config) as MutableJsonObject & {
+        inbounds: MutableJsonObject[];
+    };
+
+    for (const inbound of nextConfig.inbounds) {
+        if (!isObject(inbound) || inbound.protocol !== 'aesingflow') continue;
+        if (!isObject(inbound.streamSettings)) continue;
+
+        if (inbound.streamSettings.network === 'aesingflow') {
+            delete inbound.streamSettings.network;
+            changed = true;
+        }
+    }
+
+    return { config: nextConfig, changed };
+}
+
 export async function syncInbounds(prisma: PrismaClient) {
     consola.start('Syncing inbounds...');
 
@@ -12,7 +44,18 @@ export async function syncInbounds(prisma: PrismaClient) {
     for (const configProfile of configProfiles) {
         consola.start(`Syncing ${configProfile.name}...`);
 
-        const validatedConfig = new XRayConfig(configProfile.config as object);
+        const normalized = removeLegacyAesingFlowNetwork(configProfile.config);
+        if (normalized.changed) {
+            consola.info(`Removing legacy AesingFlow transport from ${configProfile.name}`);
+            await prisma.configProfiles.update({
+                where: { uuid: configProfile.uuid },
+                data: {
+                    config: normalized.config as Prisma.InputJsonValue,
+                },
+            });
+        }
+
+        const validatedConfig = new XRayConfig(normalized.config as object);
 
         const configInbounds = validatedConfig.getAllInbounds();
 
