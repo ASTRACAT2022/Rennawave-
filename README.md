@@ -5,7 +5,8 @@ Remnawave backend and frontend with AesingFlow configuration validation.
 ## Quick Docker test
 
 Runs the panel, PostgreSQL, and Valkey on port 80. This is only for testing;
-it does not deploy a Node or provide an AesingFlow-compatible Xray core.
+it does not deploy a Node. The custom Node image is built separately by
+GitHub Actions as `ghcr.io/astracat2022/rennawave-node-aesingflow`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ASTRACAT2022/Rennawave-/main/install-test.sh | sudo bash

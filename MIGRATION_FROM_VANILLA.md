@@ -203,4 +203,5 @@ offline backup during a maintenance window. Do not delete or overwrite
 
 The panel validates AesingFlow configurations. It does not turn a standard
 Remnawave Node into an AesingFlow-capable core. Add an AesingFlow inbound only
-after each Node runs the matching custom core through `CUSTOM_CORE_URL`.
+after each Node runs `ghcr.io/astracat2022/rennawave-node-aesingflow`, which
+bakes in the matching custom Xray core.

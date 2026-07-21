@@ -44,6 +44,7 @@ interface AesingFlowInbound {
         tlsSettings?: {
             serverName?: string;
             minVersion?: string;
+            alpn?: string[] | string;
             certificates?: Array<{
                 keyFile?: string;
                 certificateFile?: string;
@@ -73,6 +74,7 @@ const ALLOWED_NETWORKS = new Set([
     'httpupgrade',
     'hysteria',
     'kcp',
+    'aesingflow',
     'raw',
     'tcp',
     'ws',
@@ -534,8 +536,8 @@ export class XRayConfig {
         if (!streamSettings) {
             throw new Error('AesingFlow requires streamSettings.');
         }
-        if (streamSettings.network && !['raw', 'tcp'].includes(streamSettings.network)) {
-            throw new Error('AesingFlow streamSettings.network must be omitted, "tcp", or "raw".');
+        if (streamSettings.network !== 'aesingflow') {
+            throw new Error('AesingFlow requires streamSettings.network = "aesingflow".');
         }
         if (streamSettings.security !== 'tls') {
             throw new Error('AesingFlow requires streamSettings.security = "tls".');
@@ -544,6 +546,13 @@ export class XRayConfig {
         const tlsSettings = streamSettings.tlsSettings;
         if (!tlsSettings || tlsSettings.minVersion !== '1.3' || !tlsSettings.serverName) {
             throw new Error('AesingFlow requires tlsSettings.serverName and minVersion = "1.3".');
+        }
+        const alpn = tlsSettings.alpn;
+        const hasAesingFlowAlpn = Array.isArray(alpn)
+            ? alpn.includes('aesingflow')
+            : alpn === 'aesingflow';
+        if (!hasAesingFlowAlpn) {
+            throw new Error('AesingFlow requires tlsSettings.alpn to include "aesingflow".');
         }
         if (!tlsSettings.certificates?.length) {
             throw new Error('AesingFlow requires tlsSettings.certificates.');

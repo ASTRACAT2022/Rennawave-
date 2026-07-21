@@ -33,6 +33,10 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
     if (!isObject(inboundProperties)) return schema
 
     pushConst(inboundProperties.protocol, 'aesingflow')
+    const streamSettingsProperties = streamSettings.properties
+    if (isObject(streamSettingsProperties)) {
+        pushConst(streamSettingsProperties.network, 'aesingflow')
+    }
 
     const aesingFlowSettingsDefinition = 'AesingFlowInboundSettingsObject'
     definitions[aesingFlowSettingsDefinition] = {
@@ -79,12 +83,22 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
                             {
                                 type: 'object',
                                 properties: {
+                                    network: { const: 'aesingflow' },
                                     security: { const: 'tls' },
                                     tlsSettings: {
                                         type: 'object',
                                         properties: {
                                             serverName: { type: 'string', minLength: 1 },
                                             minVersion: { const: '1.3' },
+                                            alpn: {
+                                                oneOf: [
+                                                    { const: 'aesingflow' },
+                                                    {
+                                                        type: 'array',
+                                                        contains: { const: 'aesingflow' }
+                                                    }
+                                                ]
+                                            },
                                             certificates: {
                                                 type: 'array',
                                                 minItems: 1,
@@ -106,10 +120,10 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
                                                 }
                                             }
                                         },
-                                        required: ['serverName', 'minVersion', 'certificates']
+                                        required: ['serverName', 'minVersion', 'alpn', 'certificates']
                                     }
                                 },
-                                required: ['security', 'tlsSettings']
+                                required: ['network', 'security', 'tlsSettings']
                             }
                         ]
                     }
@@ -138,12 +152,8 @@ export const validateAesingFlowConfig = (config: unknown): string | null => {
         if (!isObject(streamSettings)) {
             return 'AesingFlow requires streamSettings.'
         }
-        if (
-            streamSettings.network !== undefined &&
-            streamSettings.network !== 'tcp' &&
-            streamSettings.network !== 'raw'
-        ) {
-            return 'AesingFlow streamSettings.network must be omitted, "tcp", or "raw".'
+        if (streamSettings.network !== 'aesingflow') {
+            return 'AesingFlow requires streamSettings.network = "aesingflow".'
         }
         if (streamSettings.security !== 'tls') {
             return 'AesingFlow requires streamSettings.security = "tls".'
@@ -154,6 +164,13 @@ export const validateAesingFlowConfig = (config: unknown): string | null => {
         }
         if (typeof tlsSettings.serverName !== 'string' || tlsSettings.serverName.length === 0) {
             return 'AesingFlow requires tlsSettings.serverName.'
+        }
+        const alpn = tlsSettings.alpn
+        const hasAesingFlowAlpn = Array.isArray(alpn)
+            ? alpn.includes('aesingflow')
+            : alpn === 'aesingflow'
+        if (!hasAesingFlowAlpn) {
+            return 'AesingFlow requires tlsSettings.alpn to include "aesingflow".'
         }
         if (!Array.isArray(tlsSettings.certificates) || tlsSettings.certificates.length === 0) {
             return 'AesingFlow requires tlsSettings.certificates.'

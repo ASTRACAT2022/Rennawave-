@@ -73,15 +73,9 @@ also builds an AesingFlow-ready Node image:
 ghcr.io/astracat2022/rennawave-node-aesingflow:latest
 ```
 
-For a baked-in core, add a repository variable or secret named
-`AESINGFLOW_CORE_URL`. It must be a direct URL to the Linux `xray`/`rw-core`
-executable, not a `.zip`, `.tar.gz`, or release page. The workflow is
-**Build AesingFlow node image**.
-
-If `AESINGFLOW_CORE_URL` is not set, the image still builds successfully and
-keeps the upstream Remnawave Node core. In that mode, set `CUSTOM_CORE_URL` in
-the Node `.env`; the Node downloads the AesingFlow-compatible core on container
-start.
+The workflow is **Build AesingFlow node image**. It builds the bundled
+`node-aesingflow/Xray-core` source and bakes that custom Xray binary into the
+image. No `AESINGFLOW_CORE_URL` or `CUSTOM_CORE_URL` is required.
 
 Install or update a Node server with:
 
@@ -99,7 +93,24 @@ or editing that Node:
 ```dotenv
 SECRET_KEY=replace-with-node-secret-from-panel
 NODE_PORT=2222
-CUSTOM_CORE_URL=https://example.com/path/to/aesingflow-xray-linux-amd64
+```
+
+If the AesingFlow inbound uses certificate paths such as
+`/var/lib/remnawave/configs/xray/ssl/fullchain.pem`, mount those files or their
+directory into the Node container. For example, if the Node host has
+`/opt/remnawave/nginx/fullchain.pem` and `/opt/remnawave/nginx/privkey.key`,
+uncomment the `volumes` block in `docker-compose.node-aesingflow.yml` or add:
+
+```yaml
+    volumes:
+      - /opt/remnawave/nginx:/var/lib/remnawave/configs/xray/ssl:ro
+```
+
+The private key must not be group/world-readable:
+
+```bash
+sudo chmod 600 /opt/remnawave/nginx/privkey.key
+sudo chmod 644 /opt/remnawave/nginx/fullchain.pem
 ```
 
 Then start it:
@@ -112,11 +123,6 @@ docker compose --env-file .env -f docker-compose.node-aesingflow.yml ps
 docker logs --tail=100 remnanode
 docker exec remnanode rw-core version
 ```
-
-If you do not have a ready direct binary URL yet, you can temporarily use the
-official image and pass `CUSTOM_CORE_URL` in the Node compose file. The final
-image above is cleaner because the Node does not download its core on every
-container recreation.
 
 ### Per-Node TLS name
 
@@ -132,11 +138,43 @@ Immediately before sending the Xray config, the panel replaces it with the
 be a public DNS name covered by that Node's certificate. Do not use this token
 when the Node address is an IP address or a private management endpoint.
 
-Do not set `streamSettings.network` to `aesingflow`. Current AesingFlow core
-builds expose AesingFlow as an inbound protocol, while TLS still uses the
-standard Xray `streamSettings.tlsSettings` object. Leave `network` omitted, or
-use a standard Xray value such as `tcp` only if your core explicitly requires
-it.
+The bundled custom core registers AesingFlow both as an inbound protocol and
+as an Xray stream transport. Therefore set `streamSettings.network` to
+`aesingflow`, keep `streamSettings.security` as `tls`, and set
+`tlsSettings.alpn` so it includes `aesingflow`. TLS still uses the standard
+Xray `streamSettings.tlsSettings` object; do not create a second certificate
+store in AesingFlow settings.
+
+Minimal inbound template:
+
+```json
+{
+  "tag": "AESINGFLOW-4433",
+  "listen": "0.0.0.0",
+  "port": 4433,
+  "protocol": "aesingflow",
+  "settings": {
+    "clients": [],
+    "maxStreams": 256,
+    "brutalBps": 250000000
+  },
+  "streamSettings": {
+    "network": "aesingflow",
+    "security": "tls",
+    "tlsSettings": {
+      "serverName": "{{NODE_ADDRESS}}",
+      "minVersion": "1.3",
+      "alpn": ["aesingflow"],
+      "certificates": [
+        {
+          "keyFile": "/var/lib/remnawave/configs/xray/ssl/privkey.key",
+          "certificateFile": "/var/lib/remnawave/configs/xray/ssl/fullchain.pem"
+        }
+      ]
+    }
+  }
+}
+```
 
 For an existing vanilla panel, follow [MIGRATION_FROM_VANILLA.md](MIGRATION_FROM_VANILLA.md)
 instead of starting with an empty database.

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Dockerfile.node-aesingflow'
+      - 'node-aesingflow/**'
       - 'docker-compose.node-aesingflow.yml'
       - '.github/workflows/build-node-image.yml'
       - 'DEPLOY.md'
@@ -20,19 +20,15 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    env:
-      AESINGFLOW_CORE_URL: ${{ vars.AESINGFLOW_CORE_URL || secrets.AESINGFLOW_CORE_URL }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Resolve AesingFlow core mode
+      - name: Verify bundled AesingFlow core source
         run: |
-          if [ -z "$AESINGFLOW_CORE_URL" ]; then
-            echo "::notice::AESINGFLOW_CORE_URL is not set. The image will keep the upstream core and can load an AesingFlow core at runtime through CUSTOM_CORE_URL."
-          else
-            echo "::notice::AESINGFLOW_CORE_URL is set. The image will bake the custom core into /usr/local/bin/xray."
-          fi
+          test -f node-aesingflow/Xray-core/infra/conf/aesingflow.go
+          test -f node-aesingflow/Xray-core/transport/internet/aesingflow/listener.go
+          grep -q 'proxy/aesingflow' node-aesingflow/Xray-core/main/distro/all/all.go
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,12 +43,10 @@ jobs:
       - name: Build and publish image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: Dockerfile.node-aesingflow
+          context: ./node-aesingflow
+          file: ./node-aesingflow/Dockerfile
           push: true
           platforms: linux/amd64
-          build-args: |
-            AESINGFLOW_CORE_URL=${{ env.AESINGFLOW_CORE_URL }}
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}

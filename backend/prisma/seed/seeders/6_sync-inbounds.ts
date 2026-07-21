@@ -10,7 +10,7 @@ function isObject(value: unknown): value is MutableJsonObject {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function removeLegacyAesingFlowNetwork(config: unknown): {
+function normalizeAesingFlowStreamSettings(config: unknown): {
     config: unknown;
     changed: boolean;
 } {
@@ -27,8 +27,21 @@ function removeLegacyAesingFlowNetwork(config: unknown): {
         if (!isObject(inbound) || inbound.protocol !== 'aesingflow') continue;
         if (!isObject(inbound.streamSettings)) continue;
 
-        if (inbound.streamSettings.network === 'aesingflow') {
-            delete inbound.streamSettings.network;
+        if (inbound.streamSettings.network !== 'aesingflow') {
+            inbound.streamSettings.network = 'aesingflow';
+            changed = true;
+        }
+
+        if (!isObject(inbound.streamSettings.tlsSettings)) continue;
+
+        const tlsSettings = inbound.streamSettings.tlsSettings;
+        const alpn = tlsSettings.alpn;
+        const hasAesingFlowAlpn = Array.isArray(alpn)
+            ? alpn.includes('aesingflow')
+            : alpn === 'aesingflow';
+
+        if (!hasAesingFlowAlpn) {
+            tlsSettings.alpn = Array.isArray(alpn) ? [...alpn, 'aesingflow'] : ['aesingflow'];
             changed = true;
         }
     }
@@ -44,9 +57,9 @@ export async function syncInbounds(prisma: PrismaClient) {
     for (const configProfile of configProfiles) {
         consola.start(`Syncing ${configProfile.name}...`);
 
-        const normalized = removeLegacyAesingFlowNetwork(configProfile.config);
+        const normalized = normalizeAesingFlowStreamSettings(configProfile.config);
         if (normalized.changed) {
-            consola.info(`Removing legacy AesingFlow transport from ${configProfile.name}`);
+            consola.info(`Normalizing AesingFlow stream settings in ${configProfile.name}`);
             await prisma.configProfiles.update({
                 where: { uuid: configProfile.uuid },
                 data: {
