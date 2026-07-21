@@ -25,6 +25,7 @@ services:
     <<: [*common, *logging, *env]
     volumes:
       - valkey-socket:/var/run/valkey
+      - remnawave-configs:/var/lib/remnawave/configs
     ports:
       - 127.0.0.1:3000:${APP_PORT:-3000}
       - 127.0.0.1:3001:${METRICS_PORT:-3001}
@@ -96,5 +97,9 @@ volumes:
     external: false
   valkey-socket:
     name: valkey-socket
+    driver: local
+    external: false
+  remnawave-configs:
+    name: remnawave-configs
     driver: local
     external: false

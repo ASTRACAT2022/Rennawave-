@@ -68,3 +68,6 @@ REMNAWAVE_IMAGE=ghcr.io/astracat2022/rennawave-aesingflow:sha-<commit-sha>
 This panel image validates AesingFlow configuration. A Node is separate and
 requires an AesingFlow-compatible Xray core via `CUSTOM_CORE_URL`; the standard
 Remnawave Node image does not provide that protocol.
+
+For an existing vanilla panel, follow [MIGRATION_FROM_VANILLA.md](MIGRATION_FROM_VANILLA.md)
+instead of starting with an empty database.

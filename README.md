@@ -19,3 +19,8 @@ few minutes. The script refuses to overwrite `/opt/rennawave-test`.
 GitHub Actions builds the unified frontend/backend image and publishes it to
 GHCR. The deployment compose file and complete server instructions are in
 [DEPLOY.md](DEPLOY.md).
+
+## Migration from vanilla Remnawave
+
+Use [MIGRATION_FROM_VANILLA.md](MIGRATION_FROM_VANILLA.md) to move an existing
+panel while retaining the database, environment secrets, and TLS files.
