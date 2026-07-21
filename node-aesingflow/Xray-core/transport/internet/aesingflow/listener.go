@@ -2,6 +2,7 @@ package aesingflow
 
 import (
 	"context"
+	stdtls "crypto/tls"
 	stdnet "net"
 	"strconv"
 	"sync"
@@ -44,6 +45,24 @@ func Listen(ctx context.Context, address xnet.Address, port xnet.Port, settings 
 		return nil, errors.New("invalid AesingFlow TLS configuration").Base(err)
 	}
 	tlsConfig := xrayConfig.GetTLSConfig()
+	// Xray's standard TLS listener normally serves certificates through
+	// GetCertificate. The AesingFlow QUIC library validates the server config
+	// using tls.Config.Certificates directly, so expose the same certificates
+	// there as well. This still uses the standard streamSettings.tlsSettings
+	// loader and does not introduce a second certificate store.
+	certificates := xrayConfig.BuildCertificates()
+	if len(certificates) == 0 {
+		return nil, errors.New("AesingFlow TLS configuration contains no usable certificate")
+	}
+	tlsConfig.Certificates = make([]stdtls.Certificate, 0, len(certificates))
+	for _, certificate := range certificates {
+		if certificate != nil {
+			tlsConfig.Certificates = append(tlsConfig.Certificates, *certificate)
+		}
+	}
+	if len(tlsConfig.Certificates) == 0 {
+		return nil, errors.New("AesingFlow TLS configuration contains no usable certificate")
+	}
 	// validateTLS has already required TLS 1.3 and the expected ALPN. The
 	// AesingFlow library uses this exact standard TLS config for QUIC.
 	server, err := flow.NewServer(flow.ServerConfig{
