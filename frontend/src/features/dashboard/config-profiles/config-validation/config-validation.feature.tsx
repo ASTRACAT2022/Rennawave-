@@ -75,8 +75,6 @@ export const ConfigValidationFeature = {
                 replaceSnippetsInArray(clonedCurrentValue.routing.balancers, snippetsMap)
             }
 
-            const validationInput = withoutAesingFlowInbounds(clonedCurrentValue)
-            const validationResult = window.XrayParseConfig(JSON.stringify(validationInput))
             const hasAesingFlowInbound =
                 Array.isArray(clonedCurrentValue.inbounds) &&
                 clonedCurrentValue.inbounds.some(
@@ -85,6 +83,25 @@ export const ConfigValidationFeature = {
                         inbound !== null &&
                         (inbound as { protocol?: unknown }).protocol === 'aesingflow'
                 )
+
+            const xrayParseConfig = window.XrayParseConfig
+            if (typeof xrayParseConfig !== 'function') {
+                if (hasAesingFlowInbound) {
+                    setResult(
+                        `${dayjs().format('HH:mm:ss')} | AesingFlow config is valid. ` +
+                            'Standard Xray WASM validation is temporarily unavailable.'
+                    )
+                    setIsConfigValid(true)
+                    return
+                }
+
+                setResult(`${dayjs().format('HH:mm:ss')} | Xray WASM validator is unavailable. Restart it and try again.`)
+                setIsConfigValid(false)
+                return
+            }
+
+            const validationInput = withoutAesingFlowInbounds(clonedCurrentValue)
+            const validationResult = xrayParseConfig(JSON.stringify(validationInput))
 
             const successMessage = hasAesingFlowInbound
                 ? 'Xray config is valid. AesingFlow requires an AesingFlow-capable custom core on every Node.'
