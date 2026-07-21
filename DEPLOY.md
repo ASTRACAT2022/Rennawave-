@@ -65,9 +65,52 @@ REMNAWAVE_IMAGE=ghcr.io/astracat2022/rennawave-aesingflow:sha-<commit-sha>
 
 ## AesingFlow Node
 
-This panel image validates AesingFlow configuration. A Node is separate and
-requires an AesingFlow-compatible Xray core via `CUSTOM_CORE_URL`; the standard
-Remnawave Node image does not provide that protocol.
+This panel image validates AesingFlow configuration. A Node is separate, and the
+standard Remnawave Node image does not provide that protocol. This repository
+also builds a Node image with an AesingFlow-compatible core baked in:
+
+```text
+ghcr.io/astracat2022/rennawave-node-aesingflow:latest
+```
+
+Before the GitHub Action can build it, add a repository variable or secret named
+`AESINGFLOW_CORE_URL`. It must be a direct URL to the Linux `xray`/`rw-core`
+executable, not a `.zip`, `.tar.gz`, or release page. The workflow is
+**Build AesingFlow node image**.
+
+Install or update a Node server with:
+
+```bash
+sudo mkdir -p /opt/remnanode
+cd /opt/remnanode
+
+sudo curl -fsSLO https://raw.githubusercontent.com/ASTRACAT2022/Rennawave-/main/docker-compose.node-aesingflow.yml
+sudo nano .env
+```
+
+The Node `.env` needs the same secret that is shown in the panel when creating
+or editing that Node:
+
+```dotenv
+SECRET_KEY=replace-with-node-secret-from-panel
+NODE_PORT=2222
+```
+
+Then start it:
+
+```bash
+cd /opt/remnanode
+docker compose --env-file .env -f docker-compose.node-aesingflow.yml pull
+docker compose --env-file .env -f docker-compose.node-aesingflow.yml up -d
+docker compose --env-file .env -f docker-compose.node-aesingflow.yml ps
+docker logs --tail=100 remnanode
+docker exec remnanode rw-core version
+```
+
+If you do not have a ready direct binary URL yet, you can temporarily use the
+official image and pass `CUSTOM_CORE_URL` in the Node compose file. The final
+image above is cleaner because the Node does not download its core on every
+container recreation.
 
 ### Per-Node TLS name
 
