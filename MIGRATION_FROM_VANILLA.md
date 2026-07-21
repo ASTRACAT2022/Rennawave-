@@ -135,6 +135,25 @@ The first start applies the normal Remnawave migrations. Then verify in the UI:
    the running container.
 4. Existing Nodes reconnect; do not delete and recreate them.
 
+### Common first-start errors
+
+If Docker reports that `remnawave`, `remnawave-db`, or `remnawave-redis` is
+already in use, the vanilla containers are still present. Return to the old
+compose directory and run `docker compose down` **without** `-v`, then retry.
+
+If Compose reports an unset `POSTGRES_*` variable, verify that `/opt/rennawave/.env`
+contains literal values, not shell-variable references:
+
+```dotenv
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=the-existing-password
+POSTGRES_DB=postgres
+DATABASE_URL="postgresql://postgres:the-existing-password@remnawave-db:5432/postgres"
+```
+
+Do not use `$POSTGRES_PASSWORD` inside `DATABASE_URL`; retain the existing
+password value from the vanilla `.env`.
+
 ## 7. Rollback plan
 
 If the fork does not start, stop it without volumes:

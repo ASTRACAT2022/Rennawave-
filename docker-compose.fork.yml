@@ -48,10 +48,7 @@ services:
     shm_size: 512mb
     <<: [*common, *logging, *env]
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - TZ=UTC
+      TZ: UTC
     ports:
       - 127.0.0.1:6767:5432
     volumes:
