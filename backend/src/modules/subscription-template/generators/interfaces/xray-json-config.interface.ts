@@ -19,6 +19,14 @@ export interface StreamSettings {
 }
 
 export interface OutboundSettings {
+    server?: string;
+    serverPort?: number;
+    token?: string;
+    tls?: {
+        serverName?: string;
+    };
+    maxStreams?: number;
+    disableBrutal?: boolean;
     vnext?: Array<{
         address: string;
         port: number;

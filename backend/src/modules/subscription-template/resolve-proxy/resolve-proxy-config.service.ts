@@ -33,6 +33,7 @@ import { SubscriptionSettingsEntity } from '@modules/subscription-settings/entit
 import { UserEntity } from '@modules/users/entities';
 
 import {
+    AesingFlowTransport,
     GrpcTransport,
     HttpUpgradeTransport,
     HysteriaTransport,
@@ -196,6 +197,8 @@ export class ResolveProxyConfigService {
         }
 
         switch (rawNetwork) {
+            case 'aesingflow':
+                return this.resolveAesingFlow();
             case 'xhttp':
                 return this.resolveXhttp(streamSettings.xhttpSettings, inputHost);
             case 'ws':
@@ -225,6 +228,13 @@ export class ResolveProxyConfigService {
                     },
                 };
         }
+    }
+
+    private resolveAesingFlow(): AesingFlowTransport {
+        return {
+            transport: 'aesingflow',
+            transportOptions: {},
+        };
     }
 
     private resolveXhttp(
@@ -527,6 +537,21 @@ export class ResolveProxyConfigService {
                         version: 2,
                     },
                 };
+            case 'aesingflow': {
+                const settings = inbound.settings as {
+                    congestionControl?: 'brutal' | 'cubic';
+                    maxStreams?: number;
+                };
+
+                return {
+                    protocol: 'aesingflow',
+                    protocolOptions: {
+                        token: user.vlessUuid,
+                        congestionControl: settings.congestionControl ?? 'brutal',
+                        maxStreams: settings.maxStreams ?? 256,
+                    },
+                };
+            }
             default:
                 return null;
         }

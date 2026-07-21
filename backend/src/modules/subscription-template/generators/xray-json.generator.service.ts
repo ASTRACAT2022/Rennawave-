@@ -19,12 +19,14 @@ type VlessConfig = Extract<ResolvedProxyConfig, { protocol: 'vless' }>;
 type TrojanConfig = Extract<ResolvedProxyConfig, { protocol: 'trojan' }>;
 type ShadowsocksConfig = Extract<ResolvedProxyConfig, { protocol: 'shadowsocks' }>;
 type HysteriaConfig = Extract<ResolvedProxyConfig, { protocol: 'hysteria' }>;
+type AesingFlowConfig = Extract<ResolvedProxyConfig, { protocol: 'aesingflow' }>;
 
 type ProtocolBuilderMap = {
     vless: (host: VlessConfig) => object;
     trojan: (host: TrojanConfig) => object;
     shadowsocks: (host: ShadowsocksConfig) => object;
     hysteria: (host: HysteriaConfig) => object;
+    aesingflow: (host: AesingFlowConfig) => object;
 };
 
 type WsConfig = Extract<ResolvedProxyConfig, { transport: 'ws' }>;
@@ -34,6 +36,7 @@ type XHttpConfig = Extract<ResolvedProxyConfig, { transport: 'xhttp' }>;
 type GrpcConfig = Extract<ResolvedProxyConfig, { transport: 'grpc' }>;
 type KcpConfig = Extract<ResolvedProxyConfig, { transport: 'kcp' }>;
 type HysteriaTransportConfig = Extract<ResolvedProxyConfig, { transport: 'hysteria' }>;
+type AesingFlowTransportConfig = Extract<ResolvedProxyConfig, { transport: 'aesingflow' }>;
 
 type TransportBuilderMap = {
     hysteria: (host: HysteriaTransportConfig) => Record<string, unknown>;
@@ -43,6 +46,7 @@ type TransportBuilderMap = {
     xhttp: (host: XHttpConfig) => Record<string, unknown>;
     grpc: (host: GrpcConfig) => Record<string, unknown>;
     kcp: (host: KcpConfig) => Record<string, unknown>;
+    aesingflow: (host: AesingFlowTransportConfig) => Record<string, unknown>;
 };
 const PROTOCOL_BUILDERS: ProtocolBuilderMap = {
     vless: (host) => ({
@@ -88,6 +92,16 @@ const PROTOCOL_BUILDERS: ProtocolBuilderMap = {
             },
         ],
     }),
+    aesingflow: (host) => ({
+        server: host.address,
+        serverPort: host.port,
+        token: host.protocolOptions.token,
+        tls: {
+            serverName: host.security === 'tls' ? host.securityOptions.serverName : '',
+        },
+        maxStreams: host.protocolOptions.maxStreams,
+        disableBrutal: host.protocolOptions.congestionControl === 'cubic',
+    }),
 };
 
 const TRANSPORT_BUILDERS: TransportBuilderMap = {
@@ -125,6 +139,7 @@ const TRANSPORT_BUILDERS: TransportBuilderMap = {
         version: 2,
         auth: host.transportOptions.auth,
     }),
+    aesingflow: () => ({}),
 };
 
 function buildTcpSettings(host: ResolvedProxyConfig): Record<string, unknown> {
@@ -309,6 +324,8 @@ export class XrayJsonGeneratorService {
                 return { kcpSettings: TRANSPORT_BUILDERS.kcp(host) };
             case 'hysteria':
                 return { hysteriaSettings: TRANSPORT_BUILDERS.hysteria(host) };
+            case 'aesingflow':
+                return {};
         }
     }
 
@@ -322,6 +339,8 @@ export class XrayJsonGeneratorService {
                 return PROTOCOL_BUILDERS.shadowsocks(host);
             case 'hysteria':
                 return PROTOCOL_BUILDERS.hysteria(host);
+            case 'aesingflow':
+                return PROTOCOL_BUILDERS.aesingflow(host);
         }
     }
 

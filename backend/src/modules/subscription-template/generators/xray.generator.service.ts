@@ -72,6 +72,8 @@ export class XrayGeneratorService {
                 return this.buildShadowsocksLink(host);
             case 'hysteria':
                 return this.buildHysteria2Link(host);
+            case 'aesingflow':
+                return this.buildAesingFlowLink(host);
             default:
                 return null;
         }
@@ -180,6 +182,26 @@ export class XrayGeneratorService {
         const queryPart = query ? `?${query}` : '';
 
         return `hysteria2://${auth}@${host.address}:${host.port}/${queryPart}#${remark}`;
+    }
+
+    // aesingflow://token@host:port?sni=host&cc=brutal&streams=256#remark
+    private buildAesingFlowLink(
+        host: Extract<ResolvedProxyConfig, { protocol: 'aesingflow' }>,
+    ): string {
+        const params: Record<string, unknown> = {};
+
+        if (host.security === 'tls' && host.securityOptions.serverName) {
+            params.sni = host.securityOptions.serverName;
+        }
+
+        params.cc = host.protocolOptions.congestionControl;
+        params.streams = host.protocolOptions.maxStreams;
+
+        const query = this.buildQueryString(params);
+        const remark = encodeURIComponent(host.finalRemark);
+        const token = encodeURIComponent(host.protocolOptions.token);
+
+        return `aesingflow://${token}@${host.address}:${host.port}?${query}#${remark}`;
     }
 
     // ── Transport Params ─────────────────────────────

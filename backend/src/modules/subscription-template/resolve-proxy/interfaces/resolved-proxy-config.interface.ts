@@ -25,6 +25,12 @@ export interface IHysteriaProtocolOptions {
     version: number;
 }
 
+export interface IAesingFlowProtocolOptions {
+    token: string;
+    congestionControl: 'brutal' | 'cubic';
+    maxStreams: number;
+}
+
 // ─── Transport Options ───────────────────────────────────
 
 export interface ITcpTransportOptions {
@@ -112,11 +118,17 @@ export type HysteriaProtocol = {
     protocolOptions: IHysteriaProtocolOptions;
 };
 
+export type AesingFlowProtocol = {
+    protocol: 'aesingflow';
+    protocolOptions: IAesingFlowProtocolOptions;
+};
+
 export type ProtocolVariant =
     | VlessProtocol
     | TrojanProtocol
     | ShadowsocksProtocol
-    | HysteriaProtocol;
+    | HysteriaProtocol
+    | AesingFlowProtocol;
 
 // ─── Transport Variants ──────────────────────────────────
 
@@ -155,6 +167,11 @@ export type HysteriaTransport = {
     transportOptions: IHysteriaTransportOptions;
 };
 
+export type AesingFlowTransport = {
+    transport: 'aesingflow';
+    transportOptions: Record<string, never>;
+};
+
 export type TransportVariant =
     | TcpTransport
     | XHttpTransport
@@ -162,7 +179,8 @@ export type TransportVariant =
     | HttpUpgradeTransport
     | GrpcTransport
     | KcpTransport
-    | HysteriaTransport;
+    | HysteriaTransport
+    | AesingFlowTransport;
 
 // ─── Security Variants ───────────────────────────────────
 

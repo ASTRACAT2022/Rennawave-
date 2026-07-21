@@ -47,7 +47,7 @@ interface ClashData {
 }
 
 const UNSUPPORTED_TRANSPORTS = new Set(['hysteria', 'kcp', 'xhttp']);
-const UNSUPPORTED_PROTOCOLS = new Set(['hysteria', 'vless']);
+const UNSUPPORTED_PROTOCOLS = new Set(['aesingflow', 'hysteria', 'vless']);
 
 @Injectable()
 export class ClashGeneratorService {
