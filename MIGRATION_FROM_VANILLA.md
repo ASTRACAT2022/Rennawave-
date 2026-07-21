@@ -140,6 +140,15 @@ The first start applies the normal Remnawave migrations. Then verify in the UI:
 If Docker reports that `remnawave`, `remnawave-db`, or `remnawave-redis` is
 already in use, the vanilla containers are still present. Return to the old
 compose directory and run `docker compose down` **without** `-v`, then retry.
+`docker stop` alone is not enough: it leaves the container names reserved. If
+the old compose directory is unavailable, remove only the stopped containers:
+
+```bash
+docker rm remnawave remnawave-db remnawave-redis
+```
+
+This does not remove named volumes. The fork compose has `name: remnawave` so
+it deliberately reuses volumes and the network created by the vanilla project.
 
 If Compose reports an unset `POSTGRES_*` variable, verify that `/opt/rennawave/.env`
 contains literal values, not shell-variable references:
