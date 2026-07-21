@@ -50,10 +50,6 @@ type AesingFlowServerConfig struct {
 
 // Build implements Buildable.
 func (c *AesingFlowServerConfig) Build() (proto.Message, error) {
-	if len(c.Clients) == 0 {
-		return nil, errors.New("AesingFlow inbound requires at least one client")
-	}
-
 	config := &aesingflow.ServerConfig{
 		MaxStreams:                    c.MaxStreams,
 		BrutalBps:                     c.BrutalBps,

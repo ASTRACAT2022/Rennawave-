@@ -43,10 +43,10 @@ type Server struct {
 }
 
 // NewServer builds the token authenticator for an AesingFlow inbound.
+// Remnawave starts managed inbounds with an empty clients array and then
+// synchronizes users later, so an empty token set must still create a valid
+// listener. Until users are added, the authenticator rejects every client.
 func NewServer(_ context.Context, config *ServerConfig) (*Server, error) {
-	if len(config.Clients) == 0 {
-		return nil, errors.New("AesingFlow inbound requires at least one client")
-	}
 	tokens := make([]flow.Token, 0, len(config.Clients))
 	for _, client := range config.Clients {
 		if client == nil || strings.TrimSpace(client.Token) == "" {
