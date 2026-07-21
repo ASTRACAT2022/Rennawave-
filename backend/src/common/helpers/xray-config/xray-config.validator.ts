@@ -266,6 +266,7 @@ export class XRayConfig {
             for (const user of users) {
                 aesingFlowInbound.settings.clients.push({
                     id: user.vlessUuid,
+                    token: user.vlessUuid,
                     email: user.tId.toString(),
                 });
             }
