@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+trap 'echo "Installation failed at line $LINENO." >&2' ERR
+
 REPOSITORY='ASTRACAT2022/Rennawave-'
 REF="${REF:-main}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/rennawave-test}"
@@ -38,7 +40,7 @@ tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR" --strip-components=1
 cp -a "$EXTRACT_DIR/." "$INSTALL_DIR/"
 
 secret() {
-    tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64
+    od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
 }
 
 db_password="$(secret)"
