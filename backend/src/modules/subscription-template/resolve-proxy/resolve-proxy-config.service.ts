@@ -495,9 +495,23 @@ export class ResolveProxyConfigService {
             return null;
         }
 
-        const inboundProtocol = String(inbound.protocol);
+        if (String(inbound.protocol) === 'aesingflow') {
+            const settings = ((inbound as unknown as { settings?: unknown }).settings ?? {}) as {
+                congestionControl?: 'brutal' | 'cubic';
+                maxStreams?: number;
+            };
 
-        switch (inboundProtocol) {
+            return {
+                protocol: 'aesingflow',
+                protocolOptions: {
+                    token: user.vlessUuid,
+                    congestionControl: settings.congestionControl ?? 'brutal',
+                    maxStreams: settings.maxStreams ?? 256,
+                },
+            };
+        }
+
+        switch (inbound.protocol) {
             case 'vless':
                 return {
                     protocol: 'vless',
@@ -539,21 +553,6 @@ export class ResolveProxyConfigService {
                         version: 2,
                     },
                 };
-            case 'aesingflow': {
-                const settings = ((inbound as unknown as { settings?: unknown }).settings ?? {}) as {
-                    congestionControl?: 'brutal' | 'cubic';
-                    maxStreams?: number;
-                };
-
-                return {
-                    protocol: 'aesingflow',
-                    protocolOptions: {
-                        token: user.vlessUuid,
-                        congestionControl: settings.congestionControl ?? 'brutal',
-                        maxStreams: settings.maxStreams ?? 256,
-                    },
-                };
-            }
             default:
                 return null;
         }
