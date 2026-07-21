@@ -30,11 +30,9 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
     }
 
     const inboundProperties = inbound.properties
-    const streamProperties = streamSettings.properties
-    if (!isObject(inboundProperties) || !isObject(streamProperties)) return schema
+    if (!isObject(inboundProperties)) return schema
 
     pushConst(inboundProperties.protocol, 'aesingflow')
-    pushConst(streamProperties.network, 'aesingflow')
 
     const aesingFlowSettingsDefinition = 'AesingFlowInboundSettingsObject'
     definitions[aesingFlowSettingsDefinition] = {
@@ -81,7 +79,6 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
                             {
                                 type: 'object',
                                 properties: {
-                                    network: { const: 'aesingflow' },
                                     security: { const: 'tls' },
                                     tlsSettings: {
                                         type: 'object',
@@ -112,7 +109,7 @@ export const extendAesingFlowSchema = <TSchema extends JsonObject>(schema: TSche
                                         required: ['serverName', 'minVersion', 'certificates']
                                     }
                                 },
-                                required: ['network', 'security', 'tlsSettings']
+                                required: ['security', 'tlsSettings']
                             }
                         ]
                     }
@@ -138,8 +135,15 @@ export const validateAesingFlowConfig = (config: unknown): string | null => {
         if (!isObject(settings) || !Array.isArray(settings.clients)) {
             return 'AesingFlow requires settings.clients.'
         }
-        if (!isObject(streamSettings) || streamSettings.network !== 'aesingflow') {
-            return 'AesingFlow requires streamSettings.network = "aesingflow".'
+        if (!isObject(streamSettings)) {
+            return 'AesingFlow requires streamSettings.'
+        }
+        if (
+            streamSettings.network !== undefined &&
+            streamSettings.network !== 'tcp' &&
+            streamSettings.network !== 'raw'
+        ) {
+            return 'AesingFlow streamSettings.network must be omitted, "tcp", or "raw".'
         }
         if (streamSettings.security !== 'tls') {
             return 'AesingFlow requires streamSettings.security = "tls".'

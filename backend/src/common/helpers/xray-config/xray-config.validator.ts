@@ -69,7 +69,6 @@ const ALLOWED_PROTOCOLS = new Set([
 ]);
 
 const ALLOWED_NETWORKS = new Set([
-    'aesingflow',
     'grpc',
     'httpupgrade',
     'hysteria',
@@ -532,8 +531,11 @@ export class XRayConfig {
         ) {
             throw new Error('AesingFlow settings.brutalBps must be a positive integer.');
         }
-        if (streamSettings?.network !== 'aesingflow') {
-            throw new Error('AesingFlow requires streamSettings.network = "aesingflow".');
+        if (!streamSettings) {
+            throw new Error('AesingFlow requires streamSettings.');
+        }
+        if (streamSettings.network && !['raw', 'tcp'].includes(streamSettings.network)) {
+            throw new Error('AesingFlow streamSettings.network must be omitted, "tcp", or "raw".');
         }
         if (streamSettings.security !== 'tls') {
             throw new Error('AesingFlow requires streamSettings.security = "tls".');

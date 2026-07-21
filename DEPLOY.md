@@ -132,5 +132,11 @@ Immediately before sending the Xray config, the panel replaces it with the
 be a public DNS name covered by that Node's certificate. Do not use this token
 when the Node address is an IP address or a private management endpoint.
 
+Do not set `streamSettings.network` to `aesingflow`. Current AesingFlow core
+builds expose AesingFlow as an inbound protocol, while TLS still uses the
+standard Xray `streamSettings.tlsSettings` object. Leave `network` omitted, or
+use a standard Xray value such as `tcp` only if your core explicitly requires
+it.
+
 For an existing vanilla panel, follow [MIGRATION_FROM_VANILLA.md](MIGRATION_FROM_VANILLA.md)
 instead of starting with an empty database.
