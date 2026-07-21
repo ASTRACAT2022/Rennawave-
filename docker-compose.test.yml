@@ -1,0 +1,86 @@
+name: rennawave-test
+
+x-backend: &backend
+  image: rennawave-test:local
+  build:
+    context: .
+    dockerfile: Dockerfile.test
+  env_file: .env
+  restart: unless-stopped
+  networks: [rennawave-test]
+
+services:
+  api:
+    <<: *backend
+    entrypoint: []
+    command: pm2-runtime start ecosystem.config.js --env production --only remnawave-api
+    ports:
+      - "${TEST_PORT:-80}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      scheduler:
+        condition: service_healthy
+
+  scheduler:
+    <<: *backend
+    command: pm2-runtime start ecosystem.config.js --env production --only remnawave-scheduler
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:$${METRICS_PORT:-3001}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  processor:
+    <<: *backend
+    entrypoint: []
+    command: pm2-runtime start ecosystem.config.js --env production --only remnawave-jobs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      scheduler:
+        condition: service_healthy
+
+  db:
+    image: postgres:18.4
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - rennawave-test-db:/var/lib/postgresql
+    networks: [rennawave-test]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: valkey/valkey:9-alpine
+    restart: unless-stopped
+    command: valkey-server --save "" --appendonly no --maxmemory-policy noeviction
+    networks: [rennawave-test]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+networks:
+  rennawave-test:
+
+volumes:
+  rennawave-test-db:
