@@ -20,10 +20,16 @@ import { UserForConfigEntity } from '@modules/users/entities/users-for-config';
 
 import { getSsPassword, isSS2022MethodFromMethod, SHADOWSOCKS_METHODS } from './ss-cipher';
 
-const MANAGED_CLIENT_PROTOCOLS = new Set(['hysteria', 'shadowsocks', 'trojan', 'vless']);
+const MANAGED_CLIENT_PROTOCOLS = new Set([
+    'aesingflow',
+    'hysteria',
+    'shadowsocks',
+    'trojan',
+    'vless',
+]);
 
 interface AesingFlowInboundConfig {
-    clients?: unknown[];
+    clients?: Array<Record<string, unknown>>;
     maxStreams?: number;
     congestionControl?: 'brutal' | 'cubic';
     brutalBps?: number;
@@ -251,6 +257,20 @@ export class XRayConfig {
     }
 
     private addUsersToInbound(inbound: InboundConfig, users: UserForConfigEntity[]): void {
+        const aesingFlowInbound = inbound as unknown as AesingFlowInbound;
+        if (aesingFlowInbound.protocol === 'aesingflow') {
+            aesingFlowInbound.settings ??= {};
+            aesingFlowInbound.settings.clients ??= [];
+
+            for (const user of users) {
+                aesingFlowInbound.settings.clients.push({
+                    id: user.vlessUuid,
+                    email: user.tId.toString(),
+                });
+            }
+            return;
+        }
+
         switch (inbound.protocol) {
             case 'trojan':
                 if (!inbound.settings) {
