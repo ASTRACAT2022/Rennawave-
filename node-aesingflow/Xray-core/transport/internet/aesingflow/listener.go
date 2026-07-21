@@ -63,8 +63,15 @@ func Listen(ctx context.Context, address xnet.Address, port xnet.Port, settings 
 	if len(tlsConfig.Certificates) == 0 {
 		return nil, errors.New("AesingFlow TLS configuration contains no usable certificate")
 	}
-	// validateTLS has already required TLS 1.3 and the expected ALPN. The
-	// AesingFlow library uses this exact standard TLS config for QUIC.
+	// The public profile uses the friendly ALPN marker "aesingflow", while
+	// the AesingFlow wire protocol negotiates its versioned identifier.
+	// Normalize the server advertisement here so clients using the bundled
+	// library (which advertises aesingflow/1) do not fail with
+	// "tls: no application protocol". Certificates and all other TLS
+	// settings still come from the standard Xray tlsSettings object above.
+	tlsConfig.NextProtos = []string{"aesingflow/1"}
+	// validateTLS has already required TLS 1.3 and the friendly ALPN marker.
+	// The AesingFlow library uses this exact standard TLS config for QUIC.
 	server, err := flow.NewServer(flow.ServerConfig{
 		Address:                       stdnet.JoinHostPort(address.String(), strconv.Itoa(int(port))),
 		TLSConfig:                     tlsConfig,
