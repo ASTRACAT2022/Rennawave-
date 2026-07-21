@@ -26,6 +26,7 @@ export interface OutboundSettings {
         serverName?: string;
     };
     maxStreams?: number;
+    brutalBps?: number;
     disableBrutal?: boolean;
     vnext?: Array<{
         address: string;

@@ -29,6 +29,7 @@ export interface IAesingFlowProtocolOptions {
     token: string;
     congestionControl: 'brutal' | 'cubic';
     maxStreams: number;
+    brutalBps: number;
 }
 
 // ─── Transport Options ───────────────────────────────────

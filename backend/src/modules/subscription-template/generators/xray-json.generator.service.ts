@@ -100,6 +100,7 @@ const PROTOCOL_BUILDERS: ProtocolBuilderMap = {
             serverName: host.security === 'tls' ? host.securityOptions.serverName : '',
         },
         maxStreams: host.protocolOptions.maxStreams,
+        brutalBps: host.protocolOptions.brutalBps,
         disableBrutal: host.protocolOptions.congestionControl === 'cubic',
     }),
 };

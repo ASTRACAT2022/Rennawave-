@@ -482,6 +482,11 @@ export class ResolveProxyConfigService {
             baseSni = inputHost.address;
         }
 
+        // The panel uses this placeholder in AesingFlow profiles so one
+        // profile can be shared by nodes with different certificate names.
+        // Resolve it for generated client links as well as for node configs.
+        baseSni = baseSni.replaceAll('{{NODE_ADDRESS}}', resolvedAddress);
+
         return this.resolveRandomizedValue(baseSni);
     }
 
@@ -499,6 +504,7 @@ export class ResolveProxyConfigService {
             const settings = ((inbound as unknown as { settings?: unknown }).settings ?? {}) as {
                 congestionControl?: 'brutal' | 'cubic';
                 maxStreams?: number;
+                brutalBps?: number;
             };
 
             return {
@@ -507,6 +513,7 @@ export class ResolveProxyConfigService {
                     token: user.vlessUuid,
                     congestionControl: settings.congestionControl ?? 'brutal',
                     maxStreams: settings.maxStreams ?? 256,
+                    brutalBps: settings.brutalBps ?? 250_000_000,
                 },
             };
         }

@@ -89,6 +89,7 @@ export const AesingFlowProtocolOptionsSchema = z.object({
     token: z.string(),
     congestionControl: z.enum(['brutal', 'cubic']),
     maxStreams: z.number().int().positive(),
+    brutalBps: z.number().int().positive(),
 });
 
 export const HysteriaTransportOptionsSchema = z.object({
