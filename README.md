@@ -13,3 +13,9 @@ curl -fsSL https://raw.githubusercontent.com/ASTRACAT2022/Rennawave-/main/instal
 
 The first build downloads images and compiles the frontend, so it may take a
 few minutes. The script refuses to overwrite `/opt/rennawave-test`.
+
+## Production-style Docker deployment
+
+GitHub Actions builds the unified frontend/backend image and publishes it to
+GHCR. The deployment compose file and complete server instructions are in
+[DEPLOY.md](DEPLOY.md).
