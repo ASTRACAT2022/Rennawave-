@@ -185,7 +185,7 @@ export class ResolveProxyConfigService {
             vlessUuid: string;
         },
     ): TransportVariant {
-        const rawNetwork = streamSettings?.network;
+        const rawNetwork = String(streamSettings?.network ?? '');
 
         if (rawNetwork === undefined || !streamSettings) {
             return {
@@ -495,7 +495,9 @@ export class ResolveProxyConfigService {
             return null;
         }
 
-        switch (inbound.protocol) {
+        const inboundProtocol = String(inbound.protocol);
+
+        switch (inboundProtocol) {
             case 'vless':
                 return {
                     protocol: 'vless',
@@ -538,7 +540,7 @@ export class ResolveProxyConfigService {
                     },
                 };
             case 'aesingflow': {
-                const settings = inbound.settings as {
+                const settings = ((inbound as unknown as { settings?: unknown }).settings ?? {}) as {
                     congestionControl?: 'brutal' | 'cubic';
                     maxStreams?: number;
                 };

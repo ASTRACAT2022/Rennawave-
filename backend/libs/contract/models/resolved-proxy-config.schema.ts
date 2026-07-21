@@ -85,6 +85,12 @@ export const HysteriaProtocolOptionsSchema = z.object({
     version: z.number().int(),
 });
 
+export const AesingFlowProtocolOptionsSchema = z.object({
+    token: z.string(),
+    congestionControl: z.enum(['brutal', 'cubic']),
+    maxStreams: z.number().int().positive(),
+});
+
 export const HysteriaTransportOptionsSchema = z.object({
     version: z.number().int(),
     auth: z.string(),
@@ -130,11 +136,17 @@ const HysteriaProtocolSchema = z.object({
     protocolOptions: HysteriaProtocolOptionsSchema,
 });
 
+const AesingFlowProtocolSchema = z.object({
+    protocol: z.literal('aesingflow'),
+    protocolOptions: AesingFlowProtocolOptionsSchema,
+});
+
 export const ProtocolVariantSchema = z.discriminatedUnion('protocol', [
     VlessProtocolSchema,
     TrojanProtocolSchema,
     ShadowsocksProtocolSchema,
     HysteriaProtocolSchema,
+    AesingFlowProtocolSchema,
 ]);
 
 const TcpTransportSchema = z.object({
@@ -172,6 +184,11 @@ const HysteriaTransportSchema = z.object({
     transportOptions: HysteriaTransportOptionsSchema,
 });
 
+const AesingFlowTransportSchema = z.object({
+    transport: z.literal('aesingflow'),
+    transportOptions: z.object({}),
+});
+
 export const TransportVariantSchema = z.discriminatedUnion('transport', [
     TcpTransportSchema,
     XHttpTransportSchema,
@@ -180,6 +197,7 @@ export const TransportVariantSchema = z.discriminatedUnion('transport', [
     GrpcTransportSchema,
     KcpTransportSchema,
     HysteriaTransportSchema,
+    AesingFlowTransportSchema,
 ]);
 
 const TlsSecuritySchema = z.object({
@@ -222,15 +240,16 @@ export const ResolvedProxyConfigSchema = z.object({
     address: z.string(),
     port: z.number().int().positive(),
 
-    protocol: z.enum(['vless', 'trojan', 'shadowsocks', 'hysteria']),
+    protocol: z.enum(['vless', 'trojan', 'shadowsocks', 'hysteria', 'aesingflow']),
     protocolOptions: z.union([
         VlessProtocolOptionsSchema,
         TrojanProtocolOptionsSchema,
         ShadowsocksProtocolOptionsSchema,
         HysteriaProtocolOptionsSchema,
+        AesingFlowProtocolOptionsSchema,
     ]),
 
-    transport: z.enum(['tcp', 'xhttp', 'ws', 'httpupgrade', 'grpc', 'kcp', 'hysteria']),
+    transport: z.enum(['tcp', 'xhttp', 'ws', 'httpupgrade', 'grpc', 'kcp', 'hysteria', 'aesingflow']),
     transportOptions: z.union([
         TcpTransportOptionsSchema,
         XhttpTransportOptionsSchema,
@@ -239,6 +258,7 @@ export const ResolvedProxyConfigSchema = z.object({
         GrpcTransportOptionsSchema,
         KcpTransportOptionsSchema,
         HysteriaTransportOptionsSchema,
+        z.object({}),
     ]),
 
     security: z.enum(['tls', 'reality', 'none']),
