@@ -3,7 +3,7 @@
 The workflow builds one image containing this repository's frontend and backend:
 
 ```text
-ghcr.io/astracat2022/rennawave-:latest
+ghcr.io/astracat2022/rennawave-aesingflow:latest
 ```
 
 It runs automatically for every push to `main` that changes `backend`, `frontend`,
@@ -12,7 +12,7 @@ or the Dockerfile. A second immutable image is published as `sha-<commit>`.
 ## 1. Enable and inspect the build
 
 Open **Actions → Build unified panel image** in GitHub and wait for the run to
-finish. In **Packages**, change the `rennawave-` container package visibility to
+finish. In **Packages**, change the `rennawave-aesingflow` container package visibility to
 Public; otherwise the server must authenticate to GHCR before pulling it.
 
 ## 2. Prepare the server
@@ -60,7 +60,7 @@ To roll out a newer GitHub Actions image, repeat `pull` and `up -d`. To pin an
 exact build, add the following line to `.env` before the commands above:
 
 ```dotenv
-REMNAWAVE_IMAGE=ghcr.io/astracat2022/rennawave-:sha-<commit-sha>
+REMNAWAVE_IMAGE=ghcr.io/astracat2022/rennawave-aesingflow:sha-<commit-sha>
 ```
 
 ## AesingFlow Node

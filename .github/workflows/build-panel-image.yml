@@ -16,7 +16,7 @@ permissions:
 
 env:
   # OCI image references must be lowercase, while the GitHub owner is uppercase.
-  IMAGE_NAME: ghcr.io/astracat2022/rennawave-
+  IMAGE_NAME: ghcr.io/astracat2022/rennawave-aesingflow
 
 jobs:
   build-and-push:

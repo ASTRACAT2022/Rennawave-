@@ -19,7 +19,7 @@ x-env: &env
 
 services:
   remnawave:
-    image: ${REMNAWAVE_IMAGE:-ghcr.io/astracat2022/rennawave-:latest}
+    image: ${REMNAWAVE_IMAGE:-ghcr.io/astracat2022/rennawave-aesingflow:latest}
     container_name: remnawave
     hostname: remnawave
     <<: [*common, *logging, *env]
