@@ -132,6 +132,11 @@ The fork compose intentionally pins PostgreSQL 17 with
 change it to PostgreSQL 18 as part of this panel migration; upgrading the
 database major version is a separate `pg_upgrade` maintenance task.
 
+Valkey keeps its Unix socket and also listens on its internal Docker TCP port
+6379. This preserves compatibility with vanilla `.env` files that use either
+`REDIS_SOCKET` or `REDIS_HOST`/`REDIS_PORT`; the port is not published on the
+host.
+
 The first start applies the normal Remnawave migrations. Then verify in the UI:
 
 1. Existing users, hosts, Nodes, and subscriptions are present.
