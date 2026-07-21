@@ -2,15 +2,17 @@ FROM remnawave/node:latest
 
 ARG AESINGFLOW_CORE_URL
 
-LABEL org.opencontainers.image.title="Remnawave Node with AesingFlow"
-LABEL org.opencontainers.image.description="Remnawave Node image with an AesingFlow-compatible Xray core baked in"
+LABEL org.opencontainers.image.title="Remnawave Node AesingFlow-ready"
+LABEL org.opencontainers.image.description="Remnawave Node image that can bake an AesingFlow-compatible Xray core or load it through CUSTOM_CORE_URL"
 LABEL org.opencontainers.image.source="https://github.com/ASTRACAT2022/Rennawave-"
 LABEL org.opencontainers.image.vendor="ASTRACAT2022"
 
-RUN if [ -z "${AESINGFLOW_CORE_URL}" ]; then \
-        echo "AESINGFLOW_CORE_URL build argument is required. It must point directly to a Linux xray/rw-core executable." >&2; \
-        exit 1; \
+RUN if [ -n "${AESINGFLOW_CORE_URL}" ]; then \
+        echo "Installing AesingFlow-compatible core from AESINGFLOW_CORE_URL"; \
+        wget -q -O /usr/local/bin/xray "${AESINGFLOW_CORE_URL}"; \
+        chmod +x /usr/local/bin/xray; \
+    else \
+        echo "AESINGFLOW_CORE_URL is not set. Keeping the upstream Remnawave Node core."; \
+        echo "Set CUSTOM_CORE_URL at runtime to load an AesingFlow-compatible core on container start."; \
     fi \
-    && wget -q -O /usr/local/bin/xray "${AESINGFLOW_CORE_URL}" \
-    && chmod +x /usr/local/bin/xray \
     && /usr/local/bin/rw-core version | head -n 1

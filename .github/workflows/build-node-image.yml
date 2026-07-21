@@ -26,11 +26,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Require AesingFlow core URL
+      - name: Resolve AesingFlow core mode
         run: |
           if [ -z "$AESINGFLOW_CORE_URL" ]; then
-            echo "Set repository variable or secret AESINGFLOW_CORE_URL to a direct Linux xray/rw-core executable URL."
-            exit 1
+            echo "::notice::AESINGFLOW_CORE_URL is not set. The image will keep the upstream core and can load an AesingFlow core at runtime through CUSTOM_CORE_URL."
+          else
+            echo "::notice::AESINGFLOW_CORE_URL is set. The image will bake the custom core into /usr/local/bin/xray."
           fi
 
       - name: Set up Docker Buildx

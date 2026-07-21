@@ -66,17 +66,22 @@ REMNAWAVE_IMAGE=ghcr.io/astracat2022/rennawave-aesingflow:sha-<commit-sha>
 ## AesingFlow Node
 
 This panel image validates AesingFlow configuration. A Node is separate, and the
-standard Remnawave Node image does not provide that protocol. This repository
-also builds a Node image with an AesingFlow-compatible core baked in:
+standard Remnawave Node core does not provide that protocol. This repository
+also builds an AesingFlow-ready Node image:
 
 ```text
 ghcr.io/astracat2022/rennawave-node-aesingflow:latest
 ```
 
-Before the GitHub Action can build it, add a repository variable or secret named
+For a baked-in core, add a repository variable or secret named
 `AESINGFLOW_CORE_URL`. It must be a direct URL to the Linux `xray`/`rw-core`
 executable, not a `.zip`, `.tar.gz`, or release page. The workflow is
 **Build AesingFlow node image**.
+
+If `AESINGFLOW_CORE_URL` is not set, the image still builds successfully and
+keeps the upstream Remnawave Node core. In that mode, set `CUSTOM_CORE_URL` in
+the Node `.env`; the Node downloads the AesingFlow-compatible core on container
+start.
 
 Install or update a Node server with:
 
@@ -94,6 +99,7 @@ or editing that Node:
 ```dotenv
 SECRET_KEY=replace-with-node-secret-from-panel
 NODE_PORT=2222
+CUSTOM_CORE_URL=https://example.com/path/to/aesingflow-xray-linux-amd64
 ```
 
 Then start it:
