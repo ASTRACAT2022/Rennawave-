@@ -44,13 +44,16 @@ services:
         condition: service_healthy
 
   remnawave-db:
-    image: postgres:18.4
+    # Existing vanilla volume uses PostgreSQL 17 with PGDATA at the volume root.
+    # Do not change this image or PGDATA without a separate pg_upgrade procedure.
+    image: postgres:17
     container_name: remnawave-db
     hostname: remnawave-db
     shm_size: 512mb
     <<: [*common, *logging, *env]
     environment:
       TZ: UTC
+      PGDATA: /var/lib/postgresql
     ports:
       - 127.0.0.1:6767:5432
     volumes:

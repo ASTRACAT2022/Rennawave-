@@ -127,6 +127,11 @@ docker compose -f docker-compose.fork.yml logs --tail=150 remnawave
 curl -fsS http://127.0.0.1:3001/health
 ```
 
+The fork compose intentionally pins PostgreSQL 17 with
+`PGDATA=/var/lib/postgresql` for the existing vanilla volume layout. Do not
+change it to PostgreSQL 18 as part of this panel migration; upgrading the
+database major version is a separate `pg_upgrade` maintenance task.
+
 The first start applies the normal Remnawave migrations. Then verify in the UI:
 
 1. Existing users, hosts, Nodes, and subscriptions are present.
