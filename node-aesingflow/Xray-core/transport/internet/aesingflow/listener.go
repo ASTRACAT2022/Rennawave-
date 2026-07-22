@@ -139,9 +139,10 @@ func (l *listener) acceptStreams(ctx context.Context, conn flow.Connection, addC
 			return
 		}
 		addConn(&streamConn{
-			stream: stream,
-			local:  tcpAddr(conn.LocalAddr()),
-			remote: tcpAddr(conn.RemoteAddr()),
+			stream:  stream,
+			local:   tcpAddr(conn.LocalAddr()),
+			remote:  tcpAddr(conn.RemoteAddr()),
+			subject: conn.AuthenticatedSubject(),
 		})
 	}
 }
@@ -162,9 +163,10 @@ func tcpAddr(addr stdnet.Addr) *stdnet.TCPAddr {
 }
 
 type streamConn struct {
-	stream flow.StreamSession
-	local  *stdnet.TCPAddr
-	remote *stdnet.TCPAddr
+	stream  flow.StreamSession
+	local   *stdnet.TCPAddr
+	remote  *stdnet.TCPAddr
+	subject string
 }
 
 func (c *streamConn) Read(p []byte) (int, error)         { return c.stream.Read(p) }
@@ -175,6 +177,10 @@ func (c *streamConn) RemoteAddr() stdnet.Addr            { return c.remote }
 func (c *streamConn) SetDeadline(t time.Time) error      { return c.stream.SetDeadline(t) }
 func (c *streamConn) SetReadDeadline(t time.Time) error  { return c.stream.SetReadDeadline(t) }
 func (c *streamConn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
+
+// AesingFlowSubject exposes the authenticated token owner to the inbound
+// proxy. Xray's dispatcher uses its email field to maintain online-user stats.
+func (c *streamConn) AesingFlowSubject() string { return c.subject }
 
 var _ stat.Connection = (*streamConn)(nil)
 

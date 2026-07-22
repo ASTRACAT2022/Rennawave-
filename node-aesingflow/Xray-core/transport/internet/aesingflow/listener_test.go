@@ -20,6 +20,13 @@ func TestTCPAddrAlwaysReturnsTCPAddress(t *testing.T) {
 	}
 }
 
+func TestStreamConnAuthenticatedSubject(t *testing.T) {
+	conn := &streamConn{subject: "user-123"}
+	if got := conn.AesingFlowSubject(); got != "user-123" {
+		t.Fatalf("AesingFlowSubject() = %q, want user-123", got)
+	}
+}
+
 type flowAddrForTest string
 
 func (a flowAddrForTest) Network() string { return "aesingflow" }

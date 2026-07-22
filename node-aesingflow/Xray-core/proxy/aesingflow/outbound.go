@@ -16,6 +16,7 @@ import (
 	"github.com/xtls/xray-core/common/buf"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/common/signal"
 	"github.com/xtls/xray-core/common/task"
@@ -40,6 +41,19 @@ type Handler struct {
 type Server struct {
 	config        *ServerConfig
 	inboundConfig aftransport.InboundConfig
+}
+
+type authenticatedStream interface {
+	AesingFlowSubject() string
+}
+
+func authenticatedSubject(conn stat.Connection) string {
+	// Inbound traffic accounting may wrap the transport connection in
+	// stat.CounterConnection. Unwrap it before reading the AesingFlow identity.
+	if authenticated, ok := stat.TryUnwrapStatsConn(conn).(authenticatedStream); ok {
+		return authenticated.AesingFlowSubject()
+	}
+	return ""
 }
 
 // NewServer builds the token authenticator for an AesingFlow inbound.
@@ -81,6 +95,9 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn stat.Con
 	}
 	inbound := session.InboundFromContext(ctx)
 	inbound.Name = "aesingflow"
+	if subject := authenticatedSubject(conn); subject != "" {
+		inbound.User = &protocol.MemoryUser{Email: subject}
+	}
 	target, err := flowproxy.ReadRequest(conn)
 	if err != nil {
 		return errors.New("invalid AesingFlow CONNECT request").Base(err)

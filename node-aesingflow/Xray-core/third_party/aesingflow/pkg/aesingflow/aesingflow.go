@@ -114,6 +114,9 @@ type Connection interface {
 	// accounting decisions.
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
+	// AuthenticatedSubject identifies the token owner after a successful
+	// server-side handshake. It is empty on client connections.
+	AuthenticatedSubject() string
 	OpenStream(context.Context) (StreamSession, error)
 	OpenDatagramSession(context.Context) (DatagramSession, error)
 	AcceptStream(context.Context) (StreamSession, error)
@@ -332,25 +335,26 @@ func (s *server) Accept(ctx context.Context) (Connection, error) {
 }
 
 type flowConn struct {
-	q               *quic.Conn
-	control         *quic.Stream
-	client          bool
-	cfg             limits
-	log             *slog.Logger
-	ctx             context.Context
-	cancel          context.CancelFunc
-	state           *coreconn.StateMachine
-	controlMu       sync.Mutex
-	streamsMu       sync.Mutex
-	streams         map[uint64]*streamSession
-	datagramsMu     sync.Mutex
-	datagrams       map[uint64]*datagramSession
-	acceptStreams   chan StreamSession
-	acceptDatagrams chan DatagramSession
-	nextID          atomic.Uint64
-	metrics         *metrics.Counters
-	scheduler       *scheduler.Scheduler
-	closeOnce       sync.Once
+	q                    *quic.Conn
+	control              *quic.Stream
+	client               bool
+	authenticatedSubject string
+	cfg                  limits
+	log                  *slog.Logger
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	state                *coreconn.StateMachine
+	controlMu            sync.Mutex
+	streamsMu            sync.Mutex
+	streams              map[uint64]*streamSession
+	datagramsMu          sync.Mutex
+	datagrams            map[uint64]*datagramSession
+	acceptStreams        chan StreamSession
+	acceptDatagrams      chan DatagramSession
+	nextID               atomic.Uint64
+	metrics              *metrics.Counters
+	scheduler            *scheduler.Scheduler
+	closeOnce            sync.Once
 }
 type limits struct {
 	maxStreams, maxDatagrams, maxControl, maxDatagram int
@@ -590,8 +594,9 @@ func (f *flowConn) AcceptDatagramSession(ctx context.Context) (DatagramSession, 
 		return nil, f.ctx.Err()
 	}
 }
-func (f *flowConn) LocalAddr() net.Addr  { return f.q.LocalAddr() }
-func (f *flowConn) RemoteAddr() net.Addr { return f.q.RemoteAddr() }
+func (f *flowConn) LocalAddr() net.Addr          { return f.q.LocalAddr() }
+func (f *flowConn) RemoteAddr() net.Addr         { return f.q.RemoteAddr() }
+func (f *flowConn) AuthenticatedSubject() string { return f.authenticatedSubject }
 func (f *flowConn) Stats() ConnectionStats {
 	s := f.metrics.Snapshot()
 	s.QueueSize = int64(f.scheduler.Len())
@@ -964,6 +969,7 @@ func serverHandshake(ctx context.Context, q *quic.Conn, c ServerConfig, log *slo
 	if e != nil {
 		return nil, e
 	}
+	f.authenticatedSubject = result.Subject
 	fr, e = codec.Read(ctrl, l.maxControl)
 	if e != nil || fr.Type != protocol.ConnectionReady {
 		if e != nil {

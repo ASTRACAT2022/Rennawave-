@@ -151,6 +151,12 @@ func TestBrutalQUICHandshake(t *testing.T) {
 func TestQUICHandshakeAndStreamEcho(t *testing.T) {
 	c, s, done := testPair(t)
 	defer done()
+	if got := s.AuthenticatedSubject(); got != "test" {
+		t.Fatalf("server authenticated subject = %q, want test", got)
+	}
+	if got := c.AuthenticatedSubject(); got != "" {
+		t.Fatalf("client authenticated subject = %q, want empty", got)
+	}
 	cs, e := c.OpenStream(context.Background())
 	if e != nil {
 		t.Fatal(e)
