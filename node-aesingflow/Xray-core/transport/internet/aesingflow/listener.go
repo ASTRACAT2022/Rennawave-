@@ -138,14 +138,33 @@ func (l *listener) acceptStreams(ctx context.Context, conn flow.Connection, addC
 		if err != nil {
 			return
 		}
-		addConn(&streamConn{stream: stream, local: flowAddr("aesingflow"), remote: flowAddr("aesingflow-client")})
+		addConn(&streamConn{
+			stream: stream,
+			local:  tcpAddr(conn.LocalAddr()),
+			remote: tcpAddr(conn.RemoteAddr()),
+		})
+	}
+}
+
+// tcpAddr preserves the QUIC peer's IP and port while presenting the virtual
+// AesingFlow stream as TCP to Xray's inbound worker. That worker derives its
+// routing and accounting source from net.TCPAddr and panics for custom address
+// implementations.
+func tcpAddr(addr stdnet.Addr) *stdnet.TCPAddr {
+	switch value := addr.(type) {
+	case *stdnet.TCPAddr:
+		return value
+	case *stdnet.UDPAddr:
+		return &stdnet.TCPAddr{IP: value.IP, Port: value.Port, Zone: value.Zone}
+	default:
+		return &stdnet.TCPAddr{IP: stdnet.IPv4zero}
 	}
 }
 
 type streamConn struct {
 	stream flow.StreamSession
-	local  stdnet.Addr
-	remote stdnet.Addr
+	local  *stdnet.TCPAddr
+	remote *stdnet.TCPAddr
 }
 
 func (c *streamConn) Read(p []byte) (int, error)         { return c.stream.Read(p) }
@@ -158,11 +177,6 @@ func (c *streamConn) SetReadDeadline(t time.Time) error  { return c.stream.SetRe
 func (c *streamConn) SetWriteDeadline(t time.Time) error { return c.stream.SetWriteDeadline(t) }
 
 var _ stat.Connection = (*streamConn)(nil)
-
-type flowAddr string
-
-func (a flowAddr) Network() string { return protocolName }
-func (a flowAddr) String() string  { return string(a) }
 
 func init() {
 	common.Must(internet.RegisterTransportListener(protocolName, Listen))

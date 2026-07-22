@@ -109,6 +109,11 @@ type Server interface {
 	Addr() net.Addr
 }
 type Connection interface {
+	// LocalAddr and RemoteAddr expose the underlying QUIC endpoints to proxy
+	// cores that need to retain the original client address for policy and
+	// accounting decisions.
+	LocalAddr() net.Addr
+	RemoteAddr() net.Addr
 	OpenStream(context.Context) (StreamSession, error)
 	OpenDatagramSession(context.Context) (DatagramSession, error)
 	AcceptStream(context.Context) (StreamSession, error)
@@ -585,6 +590,8 @@ func (f *flowConn) AcceptDatagramSession(ctx context.Context) (DatagramSession, 
 		return nil, f.ctx.Err()
 	}
 }
+func (f *flowConn) LocalAddr() net.Addr  { return f.q.LocalAddr() }
+func (f *flowConn) RemoteAddr() net.Addr { return f.q.RemoteAddr() }
 func (f *flowConn) Stats() ConnectionStats {
 	s := f.metrics.Snapshot()
 	s.QueueSize = int64(f.scheduler.Len())
