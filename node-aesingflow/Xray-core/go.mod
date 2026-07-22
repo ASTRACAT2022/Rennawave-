@@ -3,7 +3,7 @@ module github.com/xtls/xray-core
 go 1.26.0
 
 require (
-	github.com/ASTRACAT2022/aesingflow v0.0.0-20260720120709-ac4b3497e3df
+	github.com/ASTRACAT2022/aesingflow v0.0.0-20260722110459-5ad9606089f9
 	github.com/apernet/quic-go v0.59.1-0.20260425001925-6c6cc9bcb716
 	github.com/cloudflare/circl v1.6.4
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344

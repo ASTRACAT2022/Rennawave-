@@ -1,3 +1,16 @@
+FROM golang:1.26.3-alpine AS xray-build
+
+WORKDIR /src/Xray-core
+
+COPY Xray-core/go.mod Xray-core/go.sum ./
+COPY Xray-core/third_party/aesingflow/go.mod ./third_party/aesingflow/go.mod
+COPY Xray-core/third_party/aesingflow/third_party/quic-go/go.mod ./third_party/aesingflow/third_party/quic-go/go.mod
+RUN go mod download
+
+COPY Xray-core ./
+RUN CGO_ENABLED=0 go build -p 1 -trimpath -ldflags="-s -w -buildid=" -o /usr/local/bin/xray ./main
+
+
 FROM mcr.microsoft.com/devcontainers/base:jammy
 
 ARG S6_OVERLAY_VERSION=3.2.0.2
@@ -27,6 +40,10 @@ ENV PATH="/root/.nvm/versions/node/v24.12.0/bin:${PATH}"
 
 RUN curl -L https://raw.githubusercontent.com/remnawave/scripts/main/scripts/install-latest-xray.sh | bash -s -- v26.5.3 \
     && ln -s /usr/local/bin/xray /usr/local/bin/rw-core
+
+# Keep the installer-provided geo assets, but use the locally built Xray core
+# with the vendored AesingFlow transport in every development environment.
+COPY --from=xray-build /usr/local/bin/xray /usr/local/bin/xray
 
 
 ARG ASN_LMDB_URL=https://github.com/remnawave/asn-index/releases/latest/download/asn-prefixes-lmdb.tar.gz

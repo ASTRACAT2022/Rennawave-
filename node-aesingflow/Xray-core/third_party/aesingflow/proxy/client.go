@@ -12,6 +12,8 @@ import (
 	"github.com/ASTRACAT2022/aesingflow/pkg/aesingflow"
 )
 
+var copyBufferPool = sync.Pool{New: func() any { return make([]byte, 32<<10) }}
+
 // ClientConfig configures a local SOCKS5 listener backed by an AesingFlow client.
 type ClientConfig struct {
 	ListenAddress string
@@ -220,8 +222,14 @@ func copyBoth(a io.ReadWriteCloser, b io.ReadWriteCloser) {
 		})
 	}
 	wg.Add(2)
-	go func() { defer wg.Done(); _, _ = io.Copy(a, b); closeAll() }()
-	go func() { defer wg.Done(); _, _ = io.Copy(b, a); closeAll() }()
+	go func() { defer wg.Done(); copyOne(a, b); closeAll() }()
+	go func() { defer wg.Done(); copyOne(b, a); closeAll() }()
 	<-done
 	wg.Wait()
+}
+
+func copyOne(dst io.Writer, src io.Reader) {
+	buffer := copyBufferPool.Get().([]byte)
+	defer copyBufferPool.Put(buffer)
+	_, _ = io.CopyBuffer(dst, src, buffer)
 }

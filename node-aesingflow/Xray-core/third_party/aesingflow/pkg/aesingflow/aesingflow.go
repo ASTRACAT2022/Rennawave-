@@ -78,10 +78,14 @@ type ClientConfig struct {
 	Logger                        *slog.Logger
 }
 type ServerConfig struct {
-	Address                                                                                          string
-	TLSConfig                                                                                        *tls.Config
-	Authenticator                                                                                    Authenticator
-	IdleTimeout, KeepAliveInterval                                                                   time.Duration
+	Address       string
+	TLSConfig     *tls.Config
+	Authenticator Authenticator
+	// HandshakeTimeout bounds the AesingFlow application handshake after the
+	// QUIC / TLS handshake has completed. It prevents an unauthenticated peer
+	// from occupying an accept worker indefinitely by never opening or filling
+	// its control stream.
+	HandshakeTimeout, IdleTimeout, KeepAliveInterval                                                 time.Duration
 	MaxConnections, MaxStreamsPerClient, MaxDatagramSessions, MaxControlMessageSize, MaxDatagramSize int
 	PaddingProfile                                                                                   PaddingProfile
 	// BrutalSendRate sets the fixed-rate Brutal controller's outbound rate in
@@ -178,6 +182,9 @@ func NewServer(c ServerConfig) (Server, error) {
 	}
 	if c.MaxDatagramSize <= 0 {
 		c.MaxDatagramSize = protocol.DefaultMaxDatagramSize
+	}
+	if c.HandshakeTimeout <= 0 {
+		c.HandshakeTimeout = 10 * time.Second
 	}
 	if !c.DisableBrutal && c.BrutalSendRate == 0 {
 		c.BrutalSendRate = DefaultBrutalSendRate
@@ -307,7 +314,9 @@ func (s *server) Accept(ctx context.Context) (Connection, error) {
 		_ = q.CloseWithError(quic.ApplicationErrorCode(aferrors.ServerBusy), "server busy")
 		return nil, aferrors.New(aferrors.ServerBusy, "server busy")
 	}
-	fc, e := serverHandshake(ctx, q, s.cfg, s.log)
+	handshakeCtx, cancel := context.WithTimeout(ctx, s.cfg.HandshakeTimeout)
+	defer cancel()
+	fc, e := serverHandshake(handshakeCtx, q, s.cfg, s.log)
 	if e != nil {
 		s.active.Add(-1)
 		_ = q.CloseWithError(quic.ApplicationErrorCode(aferrors.CodeOf(e)), "handshake failed")
@@ -340,6 +349,7 @@ type flowConn struct {
 }
 type limits struct {
 	maxStreams, maxDatagrams, maxControl, maxDatagram int
+	streamOpenTimeout                                 time.Duration
 	padding                                           PaddingProfile
 }
 
@@ -451,11 +461,15 @@ func (f *flowConn) streamLoop() {
 		if e != nil {
 			return
 		}
+		if f.cfg.streamOpenTimeout > 0 {
+			_ = st.SetReadDeadline(time.Now().Add(f.cfg.streamOpenTimeout))
+		}
 		var idb [8]byte
 		if _, e = io.ReadFull(st, idb[:]); e != nil {
 			st.CancelRead(quic.StreamErrorCode(aferrors.InvalidMessage))
 			continue
 		}
+		_ = st.SetReadDeadline(time.Time{})
 		id := binary.BigEndian.Uint64(idb[:])
 		ss, e := f.ensureStream(id, st)
 		if e != nil {
@@ -796,7 +810,9 @@ func clientHandshake(ctx context.Context, q *quic.Conn, c ClientConfig, log *slo
 	if e != nil {
 		return nil, e
 	}
-	l := limits{c.MaxStreams, c.MaxStreams, protocol.DefaultMaxControlMessage, c.MaxDatagramSize, c.PaddingProfile}
+	_ = ctrl.SetDeadline(time.Now().Add(c.HandshakeTimeout))
+	defer ctrl.SetDeadline(time.Time{})
+	l := limits{maxStreams: c.MaxStreams, maxDatagrams: c.MaxStreams, maxControl: protocol.DefaultMaxControlMessage, maxDatagram: c.MaxDatagramSize, streamOpenTimeout: c.HandshakeTimeout, padding: c.PaddingProfile}
 	f := newFlow(q, ctrl, true, l, log)
 	_ = f.state.Transition(protocol.ConnectionConnecting)
 	_ = f.state.Transition(protocol.ConnectionQUICReady)
@@ -879,7 +895,9 @@ func serverHandshake(ctx context.Context, q *quic.Conn, c ServerConfig, log *slo
 	if e != nil {
 		return nil, e
 	}
-	l := limits{c.MaxStreamsPerClient, c.MaxDatagramSessions, c.MaxControlMessageSize, c.MaxDatagramSize, c.PaddingProfile}
+	_ = ctrl.SetDeadline(time.Now().Add(c.HandshakeTimeout))
+	defer ctrl.SetDeadline(time.Time{})
+	l := limits{maxStreams: c.MaxStreamsPerClient, maxDatagrams: c.MaxDatagramSessions, maxControl: c.MaxControlMessageSize, maxDatagram: c.MaxDatagramSize, streamOpenTimeout: c.HandshakeTimeout, padding: c.PaddingProfile}
 	f := newFlow(q, ctrl, false, l, log)
 	_ = f.state.Transition(protocol.ConnectionConnecting)
 	_ = f.state.Transition(protocol.ConnectionQUICReady)

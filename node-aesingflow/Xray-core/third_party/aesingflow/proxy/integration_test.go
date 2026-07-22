@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,13 @@ func TestSOCKS5Tunnel(t *testing.T) {
 	defer server.Close()
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- Serve(ctx, server, ServerConfig{}) }()
+	badClient, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: server.Addr().String(), TLSConfig: clientTLS, Token: "wrong-token", ConnectTimeout: 5 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = badClient.Connect(ctx); err == nil {
+		t.Fatal("invalid token unexpectedly connected")
+	}
 
 	flowClient, err := aesingflow.NewClient(aesingflow.ClientConfig{Address: server.Addr().String(), TLSConfig: clientTLS, Token: "test-token", ConnectTimeout: 5 * time.Second})
 	if err != nil {
@@ -178,6 +186,86 @@ func TestDialerTunnel(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("proxy server did not stop")
+	}
+}
+
+func TestServeHandlesHundredActiveClients(t *testing.T) {
+	const clients = 128
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	serverTLS, clientTLS := testTLS(t)
+	server, err := aesingflow.NewServer(aesingflow.ServerConfig{
+		Address:             "127.0.0.1:0",
+		TLSConfig:           serverTLS,
+		Authenticator:       &aesingflow.StaticAuthenticator{Tokens: []aesingflow.Token{{Value: "test-token", Subject: "test"}}},
+		MaxConnections:      clients + 16,
+		MaxStreamsPerClient: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- Serve(ctx, server, ServerConfig{MaxConcurrentStreams: clients})
+	}()
+
+	flowClient, err := aesingflow.NewClient(aesingflow.ClientConfig{
+		Address:        server.Addr().String(),
+		TLSConfig:      clientTLS,
+		Token:          "test-token",
+		ConnectTimeout: 10 * time.Second,
+		MaxStreams:     8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	connections := make(chan aesingflow.Connection, clients)
+	connectErrors := make(chan error, clients)
+	var clientsWG sync.WaitGroup
+	for range clients {
+		clientsWG.Add(1)
+		go func() {
+			defer clientsWG.Done()
+			conn, err := flowClient.Connect(ctx)
+			if err != nil {
+				connectErrors <- err
+				return
+			}
+			connections <- conn
+		}()
+	}
+	clientsWG.Wait()
+	close(connectErrors)
+	close(connections)
+
+	for err := range connectErrors {
+		t.Errorf("connect active client: %v", err)
+	}
+	if t.Failed() {
+		return
+	}
+	active := make([]aesingflow.Connection, 0, clients)
+	for conn := range connections {
+		active = append(active, conn)
+	}
+	if len(active) != clients {
+		t.Fatalf("active connections = %d, want %d", len(active), clients)
+	}
+	for _, conn := range active {
+		_ = conn.CloseWithError(0, "test complete")
+	}
+
+	cancel()
+	select {
+	case err := <-serverDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("proxy server did not stop after load test")
 	}
 }
 

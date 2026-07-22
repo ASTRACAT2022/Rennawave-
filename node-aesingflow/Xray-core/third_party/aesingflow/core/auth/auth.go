@@ -38,22 +38,26 @@ type StaticAuthenticator struct {
 }
 
 func (a *StaticAuthenticator) Authenticate(ctx context.Context, r Request) (Result, error) {
+	now := time.Now()
+	a.mu.Lock()
 	if a.Window <= 0 {
 		a.Window = 2 * time.Minute
 	}
 	if a.MaxNonceEntries <= 0 {
 		a.MaxNonceEntries = 4096
 	}
-	now := time.Now()
-	if r.Timestamp.Before(now.Add(-a.Window)) || r.Timestamp.After(now.Add(a.Window)) {
+	window := a.Window
+	retryDelay := a.RetryDelay
+	tokens := append([]Token(nil), a.Tokens...)
+	if r.Timestamp.Before(now.Add(-window)) || r.Timestamp.After(now.Add(window)) {
+		a.mu.Unlock()
 		return Result{}, errors.New(errors.AuthExpired, "authentication timestamp expired")
 	}
-	a.mu.Lock()
 	if a.used == nil {
 		a.used = make(map[[16]byte]time.Time)
 	}
 	for n, t := range a.used {
-		if t.Before(now.Add(-a.Window)) {
+		if t.Before(now.Add(-window)) {
 			delete(a.used, n)
 		}
 	}
@@ -71,15 +75,15 @@ func (a *StaticAuthenticator) Authenticate(ctx context.Context, r Request) (Resu
 	a.used[r.Nonce] = now
 	a.mu.Unlock()
 	var match *Token
-	for i := range a.Tokens {
-		equal := subtle.ConstantTimeCompare([]byte(a.Tokens[i].Value), []byte(r.Token))
+	for i := range tokens {
+		equal := subtle.ConstantTimeCompare([]byte(tokens[i].Value), []byte(r.Token))
 		if equal == 1 {
-			match = &a.Tokens[i]
+			match = &tokens[i]
 		}
 	}
 	if match == nil {
-		if a.RetryDelay > 0 {
-			timer := time.NewTimer(a.RetryDelay)
+		if retryDelay > 0 {
+			timer := time.NewTimer(retryDelay)
 			select {
 			case <-ctx.Done():
 				timer.Stop()

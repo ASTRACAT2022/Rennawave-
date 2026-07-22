@@ -3,11 +3,14 @@ package aesingflow
 import (
 	"context"
 	stdtls "crypto/tls"
+	stderrors "errors"
 	stdnet "net"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
 
+	aferrors "github.com/ASTRACAT2022/aesingflow/core/errors"
 	flow "github.com/ASTRACAT2022/aesingflow/pkg/aesingflow"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
@@ -21,6 +24,16 @@ type listener struct {
 	server flow.Server
 	cancel context.CancelFunc
 	once   sync.Once
+}
+
+const minAcceptWorkers = 64
+
+func acceptWorkerCount() int {
+	workers := runtime.GOMAXPROCS(0)
+	if workers < minAcceptWorkers {
+		return minAcceptWorkers
+	}
+	return workers
 }
 
 func (l *listener) Addr() stdnet.Addr { return l.server.Addr() }
@@ -86,7 +99,9 @@ func Listen(ctx context.Context, address xnet.Address, port xnet.Port, settings 
 	}
 	listenCtx, cancel := context.WithCancel(ctx)
 	l := &listener{server: server, cancel: cancel}
-	go l.acceptConnections(listenCtx, addConn)
+	for range acceptWorkerCount() {
+		go l.acceptConnections(listenCtx, addConn)
+	}
 	return l, nil
 }
 
@@ -94,10 +109,24 @@ func (l *listener) acceptConnections(ctx context.Context, addConn internet.ConnH
 	for {
 		conn, err := l.server.Accept(ctx)
 		if err != nil {
-			if ctx.Err() == nil {
-				errors.LogInfoInner(ctx, err, "AesingFlow accept failed")
+			if ctx.Err() != nil {
+				return
 			}
-			return
+			var protocolErr *aferrors.Error
+			if stderrors.As(err, &protocolErr) {
+				if protocolErr.Code == aferrors.ShuttingDown {
+					return
+				}
+				errors.LogInfoInner(ctx, err, "AesingFlow connection rejected")
+				continue
+			}
+			errors.LogInfoInner(ctx, err, "AesingFlow accept failed; retrying")
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(25 * time.Millisecond):
+			}
+			continue
 		}
 		go l.acceptStreams(ctx, conn, addConn)
 	}

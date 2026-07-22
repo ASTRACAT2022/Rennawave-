@@ -61,9 +61,7 @@ func writeRequest(w io.Writer, target Target) error {
 	return err
 }
 
-// ReadRequest decodes the CONNECT request carried by an authenticated stream.
-// It exposes no authentication or TLS material.
-func ReadRequest(r io.Reader) (Target, error) {
+func readRequest(r io.Reader) (Target, error) {
 	var header [7]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return Target{}, err
@@ -102,12 +100,18 @@ func ReadRequest(r io.Reader) (Target, error) {
 	return Target{Host: string(host), Port: binary.BigEndian.Uint16(port[:])}, nil
 }
 
+// ReadRequest decodes the CONNECT request carried by an authenticated stream.
+// It is kept public for proxy-core integrations that dispatch accepted streams
+// themselves, such as the Xray AesingFlow inbound.
+func ReadRequest(r io.Reader) (Target, error) { return readRequest(r) }
+
 func writeResponse(w io.Writer, status byte) error {
 	_, err := w.Write([]byte{responseMagic[0], responseMagic[1], responseMagic[2], responseMagic[3], protocolVer, status})
 	return err
 }
 
-// WriteResponse confirms or rejects a CONNECT request.
+// WriteResponse confirms or rejects a CONNECT request. It is kept public for
+// proxy-core integrations that own the destination connection lifecycle.
 func WriteResponse(w io.Writer, success bool) error {
 	if success {
 		return writeResponse(w, statusOK)

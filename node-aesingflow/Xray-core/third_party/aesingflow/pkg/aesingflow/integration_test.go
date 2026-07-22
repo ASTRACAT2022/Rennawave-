@@ -9,10 +9,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/quic-go/quic-go"
 )
 
 func testTLS(t *testing.T) (*tls.Config, *tls.Config) {
@@ -231,6 +234,47 @@ func TestInvalidToken(t *testing.T) {
 	_, e = cl.Connect(ctx)
 	if e == nil {
 		t.Fatal("expected auth failure")
+	}
+}
+
+func TestServerApplicationHandshakeTimeout(t *testing.T) {
+	serverTLS, clientTLSBase := testTLS(t)
+	srv, err := NewServer(ServerConfig{
+		Address:          "127.0.0.1:0",
+		TLSConfig:        serverTLS,
+		Authenticator:    &StaticAuthenticator{Tokens: []Token{{Value: "token"}}},
+		HandshakeTimeout: 100 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	accepted := make(chan error, 1)
+	go func() {
+		_, err := srv.Accept(ctx)
+		accepted <- err
+	}()
+
+	tlsConfig, err := clientTLS(clientTLSBase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := quic.DialAddr(ctx, srv.Addr().String(), tlsConfig, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseWithError(0, "test complete")
+
+	select {
+	case err := <-accepted:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("server handshake error = %v, want deadline exceeded", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server did not enforce application handshake timeout")
 	}
 }
 func TestContextCancellation(t *testing.T) {
